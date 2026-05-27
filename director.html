@@ -9,7 +9,7 @@
     :root {
       --rust: #c4621a; --green: #2f5233; --ink: #1a1512;
       --warm: #f5f0ea; --mid: #e8e0d5; --muted: #6b6259;
-      --white: #ffffff; --red: #c0392b; --yellow: #f39c12;
+      --white: #ffffff; --red: #c0392b; --yellow: #f39c12; --blue: #1a6bb5;
     }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
 
@@ -73,18 +73,27 @@
     .send-row .btn { flex: 1; }
 
     .job-card { background: var(--white); border-radius: 10px; padding: 1.25rem; margin-bottom: 0.75rem; border-left: 4px solid var(--mid); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-    .job-card.status-draft { border-left-color: var(--muted); }
-    .job-card.status-new { border-left-color: var(--rust); }
-    .job-card.status-onway { border-left-color: var(--yellow); }
-    .job-card.status-done { border-left-color: var(--green); opacity: 0.75; }
+    .job-card.status-draft    { border-left-color: var(--muted); }
+    .job-card.status-new      { border-left-color: var(--red);    box-shadow: 0 1px 6px rgba(192,57,43,0.15); }
+    .job-card.status-accepted { border-left-color: var(--yellow); box-shadow: 0 1px 6px rgba(243,156,18,0.15); }
+    .job-card.status-onway    { border-left-color: var(--blue);   box-shadow: 0 1px 6px rgba(26,107,181,0.15); }
+    .job-card.status-done     { border-left-color: var(--green);  opacity: 0.75; }
     .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
     .job-title { font-size: 1.05rem; font-weight: 800; }
     .job-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
     .status-badge { font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
-    .badge-draft { background: #f0eeec; color: var(--muted); }
-    .badge-new { background: #fdecea; color: var(--red); }
-    .badge-onway { background: #fef9ec; color: #b7760a; }
-    .badge-done { background: #eaf4ec; color: var(--green); }
+    .badge-draft    { background: #f0eeec; color: var(--muted); }
+    .badge-new      { background: #fdecea; color: var(--red); }
+    .badge-accepted { background: #fff3cd; color: #856404; }
+    .badge-onway    { background: #ddeeff; color: var(--blue); }
+    .badge-done     { background: #eaf4ec; color: var(--green); }
+
+    .driver-status-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.2rem; }
+    .driver-tag { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 20px; white-space: nowrap; }
+    .driver-tag-waiting  { background: #fdecea; color: var(--red); }
+    .driver-tag-accepted { background: #fff3cd; color: #856404; }
+    .driver-tag-onway    { background: #ddeeff; color: var(--blue); }
+    .driver-tag-done     { background: #eaf4ec; color: var(--green); }
     .job-detail { font-size: 0.875rem; color: var(--muted); margin-bottom: 0.4rem; display: flex; gap: 0.5rem; }
     .job-detail strong { color: var(--ink); min-width: 85px; flex-shrink: 0; }
     .job-divider { border: none; border-top: 1px solid var(--mid); margin: 0.75rem 0; }
@@ -482,7 +491,7 @@
 
   function renderJobsList() {
     const d = getData();
-    const active = d.jobs.filter(j => j.status === 'new' || j.status === 'onway');
+    const active = d.jobs.filter(j => ['new','accepted','onway'].includes(j.status));
     const done = d.jobs.filter(j => j.status === 'done');
     document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engin virk verkefni</div>';
     document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engin lokið verkefni</div>';
@@ -495,8 +504,10 @@
   }
 
   function jobCard(job) {
-    const statusLabel = { new: 'Sent', onway: 'Á leiðinni', done: 'Lokið' };
-    const statusBadge = { new: 'badge-new', onway: 'badge-onway', done: 'badge-done' };
+    const statusLabel = { new: 'Bíður svars', accepted: 'Samþykkt', onway: 'Á leiðinni', done: 'Lokið' };
+    const statusBadge = { new: 'badge-new', accepted: 'badge-accepted', onway: 'badge-onway', done: 'badge-done' };
+    const driverTagClass = { new: 'driver-tag-waiting', accepted: 'driver-tag-accepted', onway: 'driver-tag-onway', done: 'driver-tag-done' };
+    const driverTagText = { new: '⏳ Bíður svars', accepted: '✓ Samþykkt', onway: '🚛 Á leiðinni', done: '✓ Lokið' };
     return `
       <div class="job-card status-${job.status}">
         <div class="job-header">
@@ -513,7 +524,13 @@
         <div class="job-detail"><strong>Efni:</strong> ${job.material === 'annad' ? `<span class="annad-tag">${job.materialLabel}</span>` : (job.materialLabel || '—')}</div>
         <div class="job-detail"><strong>Tækjaþörf:</strong> ${job.equipment === 'annad-equip' ? `<span class="annad-tag">${job.equipmentLabel}</span>` : (job.equipmentLabel || '—')}</div>
         <hr class="job-divider"/>
-        <div class="job-detail"><strong>Bílstjóri:</strong> ${job.driverLabel || '—'}</div>
+        <div class="job-detail" style="align-items:center;">
+          <strong>Bílstjóri:</strong>
+          <div class="driver-status-row">
+            <span>${job.driverLabel || '—'}</span>
+            <span class="driver-tag ${driverTagClass[job.status]}">${driverTagText[job.status]}</span>
+          </div>
+        </div>
         ${job.notes ? `<div class="job-detail"><strong>Athugasemd:</strong> ${job.notes}</div>` : ''}
         ${job.containerNumber ? `<div class="job-detail"><strong>Gámanúmer:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''}
         <div class="job-actions">
