@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fura App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --rust: #c4621a; --ink: #1a1512; --warm: #f5f0ea; --mid: #e8e0d5; --muted: #6b6259; --white: #fff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .box { text-align: center; max-width: 340px; width: 100%; }
+    .logo { font-size: 3rem; font-weight: 900; color: var(--rust); letter-spacing: -0.04em; margin-bottom: 0.25rem; }
+    .sub { font-size: 0.85rem; color: rgba(255,255,255,0.4); margin-bottom: 3rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    .role-btn {
+      display: block; width: 100%; padding: 1.1rem;
+      border-radius: 10px; font-size: 1.1rem; font-weight: 700;
+      border: 2px solid transparent; cursor: pointer;
+      text-decoration: none; margin-bottom: 1rem;
+      transition: transform 0.15s, opacity 0.2s;
+    }
+    .role-btn:hover { transform: translateY(-2px); opacity: 0.9; }
+    .role-btn-rust { background: var(--rust); color: #fff; }
+    .role-btn-outline { background: transparent; border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.75); }
+    .role-label { font-size: 0.7rem; color: rgba(255,255,255,0.25); margin-top: 0.4rem; letter-spacing: 0.04em; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="logo">Fura</div>
+    <div class="sub">Starfsmannaapp</div>
+    <a href="director.html" class="role-btn role-btn-rust">Stjórnandi</a>
+    <a href="driver.html" class="role-btn role-btn-outline">Bílstjóri</a>
+  </div>
+</body>
+</html>

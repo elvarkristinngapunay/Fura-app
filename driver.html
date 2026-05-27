@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fura — Bílstjóri</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --rust: #c4621a; --green: #2f5233; --ink: #1a1512;
+      --warm: #f5f0ea; --mid: #e8e0d5; --muted: #6b6259;
+      --white: #ffffff; --red: #c0392b; --yellow: #f39c12;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
+
+    #invite-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--ink); }
+    #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--ink); display: none; }
+    .login-box { background: var(--white); border-radius: 12px; padding: 2.5rem 2rem; width: 100%; max-width: 360px; text-align: center; }
+    .login-logo { font-size: 1.8rem; font-weight: 900; color: var(--rust); letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+    .login-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .back-link { font-size: 0.78rem; color: rgba(255,255,255,0.35); text-decoration: none; display: inline-block; margin-bottom: 1.5rem; }
+    .back-link:hover { color: rgba(255,255,255,0.7); }
+
+    .auth-tabs { display: flex; border-bottom: 2px solid var(--mid); margin-bottom: 1.5rem; }
+    .auth-tab { flex: 1; padding: 0.6rem; font-size: 0.875rem; font-weight: 600; background: none; border: none; cursor: pointer; color: var(--muted); border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: color 0.2s; }
+    .auth-tab.active { color: var(--rust); border-bottom-color: var(--rust); }
+
+    .auth-panel { display: none; }
+    .auth-panel.active { display: block; }
+
+    .form-group { margin-bottom: 1rem; text-align: left; }
+    .form-group label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .form-group input { width: 100%; padding: 0.75rem 1rem; border: 1.5px solid var(--mid); border-radius: 6px; font-size: 1rem; color: var(--ink); background: var(--white); outline: none; transition: border-color 0.2s; }
+    .form-group input:focus { border-color: var(--rust); }
+
+    .btn { display: inline-block; padding: 0.8rem 1.5rem; border-radius: 6px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; transition: opacity 0.2s, transform 0.15s; text-align: center; }
+    .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-rust { background: var(--rust); color: #fff; }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 0.45rem 0.9rem; font-size: 0.8rem; }
+
+    .msg { font-size: 0.85rem; margin-top: 0.75rem; padding: 0.75rem 1rem; border-radius: 6px; display: none; }
+    .msg-error { background: #fdecea; color: var(--red); }
+    .msg-pending { background: #fef9ec; color: #b7760a; }
+    .msg-success { background: #eaf4ec; color: var(--green); }
+
+    #app { display: none; }
+    header { background: var(--ink); color: #fff; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    .header-logo { font-size: 1.2rem; font-weight: 900; color: var(--rust); letter-spacing: -0.02em; }
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+    .header-name { font-size: 0.82rem; color: rgba(255,255,255,0.65); font-weight: 600; }
+    .logout-btn { font-size: 0.75rem; color: rgba(255,255,255,0.4); background: none; border: none; cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 4px; transition: color 0.2s; }
+    .logout-btn:hover { color: #fff; }
+
+    main { padding: 1.5rem 1rem 5rem; max-width: 600px; margin: 0 auto; }
+    .section-heading { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; margin-top: 1.5rem; }
+    .section-heading:first-child { margin-top: 0; }
+
+    .job-card { background: var(--white); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; border-left: 5px solid var(--mid); box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .job-card.status-new { border-left-color: var(--rust); }
+    .job-card.status-all { border-left-color: var(--yellow); }
+    .job-card.status-onway { border-left-color: var(--yellow); }
+    .job-card.status-done { border-left-color: var(--green); opacity: 0.75; }
+    .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+    .job-title { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.01em; }
+    .job-date { font-size: 0.82rem; color: var(--muted); margin-top: 0.2rem; }
+    .status-badge { font-size: 0.7rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+    .badge-new { background: #fdecea; color: var(--red); }
+    .badge-all { background: #fef9ec; color: #b7760a; }
+    .badge-onway { background: #fef9ec; color: #b7760a; }
+    .badge-done { background: #eaf4ec; color: var(--green); }
+    .job-divider { border: none; border-top: 1px solid var(--mid); margin: 0.75rem 0; }
+    .job-detail { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.5rem; display: flex; gap: 0.5rem; align-items: flex-start; }
+    .job-detail strong { color: var(--ink); min-width: 90px; flex-shrink: 0; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .phone-link { color: var(--rust); text-decoration: none; font-weight: 600; }
+    .container-input-wrap { margin-top: 1rem; }
+    .container-input-wrap label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; }
+    .container-row { display: flex; gap: 0.5rem; }
+    .container-row input { flex: 1; padding: 0.7rem 1rem; border: 1.5px solid var(--mid); border-radius: 6px; font-size: 1rem; outline: none; transition: border-color 0.2s; }
+    .container-row input:focus { border-color: var(--green); }
+    .status-actions { margin-top: 1rem; }
+    .annad-tag { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; border-radius: 5px; padding: 0.15rem 0.5rem; font-weight: 700; font-size: 0.85rem; }
+    .empty-state { text-align: center; padding: 4rem 1rem; color: var(--muted); }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--ink); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<div id="invite-screen">
+  <div class="login-box">
+    <div class="login-logo">Fura</div>
+    <div class="login-sub">Þú þarft hlekk frá stjórnanda til að fá aðgang</div>
+    <p style="font-size:0.82rem;color:var(--muted);line-height:1.6;">Hafðu samband við stjórnanda og biddu hann um að senda þér hlekk í tölvupósti eða SMS.</p>
+  </div>
+</div>
+
+<div id="login-screen">
+  <div style="width:100%;max-width:360px;">
+    <a href="index.html" class="back-link">← Til baka</a>
+    <div class="login-box">
+      <div class="login-logo">Fura</div>
+      <div class="login-sub">Bílstjórasvæði</div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuth('login', this)">Innskrá</button>
+        <button class="auth-tab" onclick="switchAuth('register', this)">Búa til aðgang</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="auth-panel active" id="auth-login">
+        <div class="form-group">
+          <label>Nafn</label>
+          <input type="text" id="login-name" placeholder="Fullt nafn..." autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label>Lykilorð</label>
+          <input type="password" id="login-password" placeholder="••••••" autocomplete="current-password" />
+        </div>
+        <button class="btn btn-rust btn-full" onclick="doLogin()">Skrá inn</button>
+        <div class="msg msg-error" id="login-error">Rangt nafn eða lykilorð</div>
+        <div class="msg msg-pending" id="login-pending">Aðgangur þinn bíður samþykkis frá stjórnanda</div>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="auth-panel" id="auth-register">
+        <div class="form-group">
+          <label>Fullt nafn</label>
+          <input type="text" id="reg-name" placeholder="t.d. Ljósbrá Sigurðardóttir" />
+        </div>
+        <div class="form-group">
+          <label>Lykilorð</label>
+          <input type="password" id="reg-password" placeholder="Veldu lykilorð..." />
+        </div>
+        <div class="form-group">
+          <label>Staðfesta lykilorð</label>
+          <input type="password" id="reg-password2" placeholder="Lykilorð aftur..." />
+        </div>
+        <button class="btn btn-rust btn-full" onclick="doRegister()">Senda beiðni</button>
+        <div class="msg msg-error" id="reg-error"></div>
+        <div class="msg msg-success" id="reg-success">Beiðni send! Stjórnandi þarf að samþykkja aðgang þinn.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="header-logo">Fura</div>
+    <div class="header-right">
+      <span class="header-name" id="header-name"></span>
+      <button class="logout-btn" onclick="doLogout()">Útskrá</button>
+    </div>
+  </header>
+  <main>
+    <div id="jobs-list"></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const INVITE_TOKEN = 'fura_drivers';
+
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('invite') === INVITE_TOKEN) localStorage.setItem('fura_invited', 'yes');
+    if (localStorage.getItem('fura_invited') === 'yes') {
+      document.getElementById('invite-screen').style.display = 'none';
+      document.getElementById('login-screen').style.display = 'flex';
+    } else {
+      document.getElementById('invite-screen').style.display = 'flex';
+      document.getElementById('login-screen').style.display = 'none';
+    }
+  })();
+
+  let currentDriverName = null;
+
+  function getData() { return JSON.parse(localStorage.getItem('fura_data') || 'null') || { jobs: [], driverRequests: [], approvedDrivers: [] }; }
+  function saveData(d) { localStorage.setItem('fura_data', JSON.stringify(d)); }
+  function nameMatch(a, b) { return a && b && a.trim().toLowerCase() === b.trim().toLowerCase(); }
+
+  function switchAuth(tab, btn) {
+    document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('auth-' + tab).classList.add('active');
+    hideAllMsgs();
+  }
+
+  function hideAllMsgs() {
+    ['login-error','login-pending','reg-error','reg-success'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+  }
+
+  function doRegister() {
+    hideAllMsgs();
+    const name = document.getElementById('reg-name').value.trim();
+    const pw = document.getElementById('reg-password').value;
+    const pw2 = document.getElementById('reg-password2').value;
+    const errEl = document.getElementById('reg-error');
+
+    if (!name) { showMsg('reg-error', 'Sláðu inn nafn'); return; }
+    if (pw.length < 4) { showMsg('reg-error', 'Lykilorð verður að vera að minnsta kosti 4 stafir'); return; }
+    if (pw !== pw2) { showMsg('reg-error', 'Lykilorð stemma ekki'); return; }
+
+    const d = getData();
+    const exists = [...(d.driverRequests || []), ...(d.approvedDrivers || [])].find(r => nameMatch(r.name, name));
+    if (exists) { showMsg('reg-error', 'Þetta nafn er þegar skráð'); return; }
+
+    d.driverRequests = d.driverRequests || [];
+    d.driverRequests.push({ id: Date.now().toString(), name, password: pw, status: 'pending' });
+    saveData(d);
+
+    document.getElementById('reg-name').value = '';
+    document.getElementById('reg-password').value = '';
+    document.getElementById('reg-password2').value = '';
+    showMsg('reg-success', 'Beiðni send! Stjórnandi þarf að samþykkja aðgang þinn.');
+  }
+
+  function doLogin() {
+    hideAllMsgs();
+    const name = document.getElementById('login-name').value.trim();
+    const pw = document.getElementById('login-password').value;
+    if (!name || !pw) { showMsg('login-error', 'Fylltu út nafn og lykilorð'); return; }
+
+    const d = getData();
+    const pending = (d.driverRequests || []).find(r => nameMatch(r.name, name) && r.password === pw);
+    if (pending) { showMsg('login-pending', 'Aðgangur þinn bíður samþykkis frá stjórnanda'); return; }
+
+    const approved = (d.approvedDrivers || []).find(r => nameMatch(r.name, name) && r.password === pw);
+    if (!approved) { showMsg('login-error', 'Rangt nafn eða lykilorð'); return; }
+
+    currentDriverName = approved.name;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('header-name').textContent = approved.name;
+    renderJobs();
+  }
+
+  function doLogout() {
+    currentDriverName = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-name').value = '';
+    document.getElementById('login-password').value = '';
+    hideAllMsgs();
+  }
+
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  function showMsg(id, text) {
+    const el = document.getElementById(id);
+    if (text) el.textContent = text;
+    el.style.display = 'block';
+  }
+
+  function renderJobs() {
+    const d = getData();
+    const myJobs = d.jobs.filter(j => nameMatch(j.driverLabel, currentDriverName) && j.status !== 'done' && j.status !== 'draft');
+    const allJobs = d.jobs.filter(j => j.driver === 'all' && j.status === 'new');
+    const doneJobs = d.jobs.filter(j => nameMatch(j.driverLabel, currentDriverName) && j.status === 'done');
+    const el = document.getElementById('jobs-list');
+    let html = '';
+
+    if (myJobs.length) { html += '<div class="section-heading">Mín verkefni</div>' + myJobs.map(jobCard).join(''); }
+    if (allJobs.length) { html += '<div class="section-heading">Opin verkefni</div>' + allJobs.map(jobCard).join(''); }
+    if (doneJobs.length) { html += '<div class="section-heading">Lokið</div>' + doneJobs.map(jobCard).join(''); }
+    if (!myJobs.length && !allJobs.length && !doneJobs.length) {
+      html = '<div class="empty-state"><div class="icon">🚛</div><p>Engin verkefni úthlutað</p></div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function jobCard(job) {
+    const isAll = job.driver === 'all';
+    const statusLabel = { new: isAll ? 'Opið' : 'Nýtt', onway: 'Á leiðinni', done: 'Lokið' };
+    const statusBadge = { new: isAll ? 'badge-all' : 'badge-new', onway: 'badge-onway', done: 'badge-done' };
+    const cardClass = isAll ? 'status-all' : `status-${job.status}`;
+    return `
+      <div class="job-card ${cardClass}">
+        <div class="job-header">
+          <div>
+            <div class="job-title">${job.jobTypeLabel || '—'}</div>
+            <div class="job-date">${job.date || '—'}</div>
+          </div>
+          <span class="status-badge ${statusBadge[job.status]}">${statusLabel[job.status]}</span>
+        </div>
+        <hr class="job-divider"/>
+        <div class="job-detail"><strong>Fyrirtæki</strong> ${job.company || '—'}</div>
+        <div class="job-detail">
+          <strong>Staðsetning</strong>
+          <span>${job.where || '—'}</span>
+          ${job.where ? `<button onclick="copyAddress('${job.where.replace(/'/g, "\\'")}')" style="margin-left:auto;background:var(--mid);border:none;border-radius:4px;padding:0.2rem 0.5rem;font-size:0.72rem;font-weight:700;cursor:pointer;color:var(--ink);flex-shrink:0;">Afrita</button>` : ''}
+        </div>
+        ${job.locationExtra ? `<div class="job-detail"><strong>Annað</strong> ${job.locationExtra}</div>` : ''}
+        ${job.phone ? `<div class="job-detail"><strong>Sími</strong> <a class="phone-link" href="tel:${job.phone}">${job.phone}</a></div>` : ''}
+        ${job.contact ? `<div class="job-detail"><strong>Tengill</strong> ${job.contact}</div>` : ''}
+        <hr class="job-divider"/>
+        <div class="job-detail"><strong>Efni</strong> ${job.material === 'annad' ? `<span class="annad-tag">${job.materialLabel}</span>` : (job.materialLabel || '—')}</div>
+        <div class="job-detail"><strong>Tækjaþörf</strong> ${job.equipment === 'annad-equip' ? `<span class="annad-tag">${job.equipmentLabel}</span>` : (job.equipmentLabel || '—')}</div>
+        ${job.notes ? `<div class="job-detail"><strong>Athugasemd</strong> ${job.notes}</div>` : ''}
+        ${isAll ? `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="claimJob('${job.id}')">Taka við verkefni</button></div>` : ''}
+        ${!isAll && job.status === 'new' ? `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="markOnWay('${job.id}')">Á leiðinni</button></div>` : ''}
+        ${job.status === 'onway' ? `
+          <div class="container-input-wrap">
+            <label>Gámanúmer</label>
+            <div class="container-row">
+              <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." />
+              <button class="btn btn-green" onclick="markDone('${job.id}')">Sótt ✓</button>
+            </div>
+          </div>` : ''}
+        ${job.status === 'done' ? `<hr class="job-divider"/><div class="job-detail"><strong>Gámanúmer</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumber || '—'}</span></div>` : ''}
+      </div>`;
+  }
+
+  function claimJob(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    job.driver = currentDriverName.toLowerCase().replace(/\s+/g, '_');
+    job.driverLabel = currentDriverName;
+    saveData(d); renderJobs();
+    showToast('Þú hefur tekið við verkefninu');
+  }
+
+  function markOnWay(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (job) job.status = 'onway';
+    saveData(d); renderJobs();
+    showToast('Merkt: Á leiðinni');
+  }
+
+  function markDone(id) {
+    const containerNumber = document.getElementById('container-' + id).value.trim();
+    if (!containerNumber) { showToast('Sláðu inn gámanúmer'); return; }
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (job) { job.status = 'done'; job.containerNumber = containerNumber; }
+    saveData(d); renderJobs();
+    showToast('Lokið! Gámanúmer skráð ✓');
+  }
+
+  function copyAddress(address) {
+    navigator.clipboard.writeText(address).then(() => showToast('Heimilisfang afritað!')).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = address;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      showToast('Heimilisfang afritað!');
+    });
+  }
+
+  // Auto-refresh when director sends a job
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'fura_data' && currentDriverName) renderJobs();
+  });
+  setInterval(function() {
+    if (currentDriverName) renderJobs();
+  }, 10000);
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+</script>
+</body>
+</html>

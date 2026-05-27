@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fura — Stjórnandi</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --rust: #c4621a; --green: #2f5233; --ink: #1a1512;
+      --warm: #f5f0ea; --mid: #e8e0d5; --muted: #6b6259;
+      --white: #ffffff; --red: #c0392b; --yellow: #f39c12;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
+
+    #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--ink); }
+    .back-link { font-size: 0.78rem; color: rgba(255,255,255,0.35); text-decoration: none; display: inline-block; margin-bottom: 1.5rem; }
+    .back-link:hover { color: rgba(255,255,255,0.7); }
+    .login-box { background: var(--white); border-radius: 12px; padding: 2.5rem 2rem; width: 100%; max-width: 360px; text-align: center; }
+    .login-logo { font-size: 1.8rem; font-weight: 900; color: var(--rust); letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+    .login-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 2rem; }
+    .login-error { color: var(--red); font-size: 0.85rem; margin-top: 0.75rem; display: none; }
+
+    .form-group { margin-bottom: 1rem; text-align: left; }
+    .form-group label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem 1rem; border: 1.5px solid var(--mid); border-radius: 6px; font-size: 1rem; color: var(--ink); background: var(--white); outline: none; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--rust); }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+
+    .btn { display: inline-block; padding: 0.8rem 1.5rem; border-radius: 6px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; transition: opacity 0.2s, transform 0.15s; text-align: center; }
+    .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-rust { background: var(--rust); color: #fff; }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-ink { background: var(--ink); color: #fff; }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--mid); color: var(--ink); }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 0.45rem 0.9rem; font-size: 0.8rem; }
+
+    .option-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem; }
+    .option-btn { padding: 0.5rem 1rem; border-radius: 6px; border: 1.5px solid var(--mid); background: var(--white); color: var(--ink); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .option-btn.selected { background: var(--rust); border-color: var(--rust); color: #fff; }
+    .option-btn.annad-btn { font-size: 0.75rem; padding: 0.35rem 0.75rem; border-color: #e8c84a; color: #7a6200; background: #fef9e0; }
+    .option-btn.annad-btn.selected { background: #e8c84a; border-color: #e8c84a; color: #3a2e00; }
+    .other-input { margin-top: 0.5rem; display: none; }
+
+    #app { display: none; }
+    header { background: var(--ink); color: #fff; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    .header-logo { font-size: 1.2rem; font-weight: 900; color: var(--rust); letter-spacing: -0.02em; }
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+    .header-role { font-size: 0.75rem; background: rgba(196,98,26,0.25); color: var(--rust); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; }
+    .logout-btn { font-size: 0.75rem; color: rgba(255,255,255,0.4); background: none; border: none; cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 4px; transition: color 0.2s; }
+    .logout-btn:hover { color: #fff; }
+
+    main { padding: 1.5rem 1rem 5rem; max-width: 700px; margin: 0 auto; }
+
+    .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--mid); overflow-x: auto; }
+    .tab-btn { padding: 0.65rem 1rem; font-size: 0.875rem; font-weight: 600; background: none; border: none; cursor: pointer; color: var(--muted); border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: color 0.2s; white-space: nowrap; flex-shrink: 0; }
+    .tab-btn.active { color: var(--rust); border-bottom-color: var(--rust); }
+    .tab-btn .badge { display: inline-block; background: var(--red); color: #fff; font-size: 0.65rem; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 10px; margin-left: 0.3rem; vertical-align: middle; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .section-heading { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; margin-top: 1.5rem; }
+    .section-heading:first-child { margin-top: 0; }
+
+    .form-card { background: var(--white); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .form-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .send-row { display: flex; gap: 0.75rem; margin-top: 0.25rem; }
+    .send-row .btn { flex: 1; }
+
+    .job-card { background: var(--white); border-radius: 10px; padding: 1.25rem; margin-bottom: 0.75rem; border-left: 4px solid var(--mid); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .job-card.status-draft { border-left-color: var(--muted); }
+    .job-card.status-new { border-left-color: var(--rust); }
+    .job-card.status-onway { border-left-color: var(--yellow); }
+    .job-card.status-done { border-left-color: var(--green); opacity: 0.75; }
+    .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+    .job-title { font-size: 1.05rem; font-weight: 800; }
+    .job-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+    .status-badge { font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+    .badge-draft { background: #f0eeec; color: var(--muted); }
+    .badge-new { background: #fdecea; color: var(--red); }
+    .badge-onway { background: #fef9ec; color: #b7760a; }
+    .badge-done { background: #eaf4ec; color: var(--green); }
+    .job-detail { font-size: 0.875rem; color: var(--muted); margin-bottom: 0.4rem; display: flex; gap: 0.5rem; }
+    .job-detail strong { color: var(--ink); min-width: 85px; flex-shrink: 0; }
+    .job-divider { border: none; border-top: 1px solid var(--mid); margin: 0.75rem 0; }
+    .job-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+
+    /* REQUEST CARDS */
+    .request-card { background: var(--white); border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,0.06); gap: 1rem; }
+    .request-name { font-weight: 700; font-size: 0.95rem; }
+    .request-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+    .request-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+    /* DRIVER LIST */
+    .driver-card { background: var(--white); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .driver-name { font-weight: 600; font-size: 0.95rem; }
+
+    .annad-tag { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; border-radius: 5px; padding: 0.15rem 0.5rem; font-weight: 700; font-size: 0.85rem; }
+
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: 0.9rem; }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--ink); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div style="width:100%;max-width:360px;text-align:center;">
+    <a href="index.html" class="back-link">← Til baka</a>
+    <div class="login-box">
+      <div class="login-logo">Fura</div>
+      <div class="login-sub">Stjórnendasvæði</div>
+      <div class="form-group">
+        <label>Lykilorð</label>
+        <input type="password" id="login-password" placeholder="••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn btn-rust btn-full" onclick="doLogin()">Skrá inn</button>
+      <div class="login-error" id="login-error">Rangt lykilorð</div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="header-logo">Fura</div>
+    <div class="header-right">
+      <span class="header-role">Stjórnandi</span>
+      <button class="logout-btn" onclick="doLogout()">Útskrá</button>
+    </div>
+  </header>
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('jobs', this)">Verkefni</button>
+      <button class="tab-btn" onclick="switchTab('new-job', this)">+ Nýtt</button>
+      <button class="tab-btn" onclick="switchTab('drafts', this)">Vistuð</button>
+      <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Beiðnir</button>
+    </div>
+
+    <!-- JOBS -->
+    <div class="tab-panel active" id="tab-jobs">
+      <div class="section-heading">Virk verkefni</div>
+      <div id="active-jobs-list"></div>
+      <div class="section-heading">Lokið</div>
+      <div id="done-jobs-list"></div>
+    </div>
+
+    <!-- NEW JOB -->
+    <div class="tab-panel" id="tab-new-job">
+      <div class="form-card">
+        <h3>Nýtt verkefni</h3>
+
+        <div class="form-group">
+          <label>Dagsetning</label>
+          <input type="date" id="job-date" />
+        </div>
+
+        <div class="form-group">
+          <label>Fyrirtæki / Aðili</label>
+          <input type="text" id="job-company" placeholder="t.d. Ístak hf." />
+        </div>
+
+        <div class="form-group">
+          <label>Staðsetning</label>
+          <input type="text" id="job-where" placeholder="t.d. Hringhellu 5, Hafnarfjörður" />
+        </div>
+
+        <div class="form-group">
+          <label>Annað (staðsetning)</label>
+          <input type="text" id="job-location-extra" placeholder="Viðbótarupplýsingar um staðsetningu..." />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Sími</label>
+            <input type="tel" id="job-phone" placeholder="565 3557" />
+          </div>
+          <div class="form-group">
+            <label>Tengill</label>
+            <input type="text" id="job-contact" placeholder="t.d. Jón Jónsson" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Tegund verkefnis</label>
+          <div class="option-group" id="job-type-group">
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'sekja')">Sækja gám</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'losa')">Losa gám</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'skipta')">Skipta gám</button>
+            <button type="button" class="option-btn annad-btn" onclick="selectOption('job-type-group', this, 'annad-type')">Annað</button>
+          </div>
+          <div class="other-input" id="job-type-other-wrap">
+            <input type="text" id="job-type-other" placeholder="Lýstu tegund verkefnis..." />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Lýsing á efni</label>
+          <div class="option-group" id="job-material-group">
+            <button type="button" class="option-btn" onclick="selectOption('job-material-group', this, 'jarn')">Járn</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-material-group', this, 'timbur')">Timbur</button>
+            <button type="button" class="option-btn annad-btn" onclick="selectOption('job-material-group', this, 'annad')">Annað</button>
+          </div>
+          <div class="other-input" id="job-material-other-wrap">
+            <input type="text" id="job-material-other" placeholder="Lýstu efninu..." />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Tækjaþörf</label>
+          <div class="option-group" id="job-equipment-group">
+            <button type="button" class="option-btn" onclick="selectOption('job-equipment-group', this, 'stor-gamur')">Stór gámur</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-equipment-group', this, 'litill-gamur')">Lítill gámur</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-equipment-group', this, 'krani')">Krani</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-equipment-group', this, 'pallbill')">Pallbíll</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-equipment-group', this, 'trailer')">Trailer</button>
+            <button type="button" class="option-btn annad-btn" onclick="selectOption('job-equipment-group', this, 'annad-equip')">Annað</button>
+          </div>
+          <div class="other-input" id="job-equipment-other-wrap">
+            <input type="text" id="job-equipment-other" placeholder="Lýstu tækjaþörf..." />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Senda til</label>
+          <div class="option-group" id="job-driver-group">
+            <button type="button" class="option-btn" onclick="selectOption('job-driver-group', this, 'all')">Senda á alla</button>
+          </div>
+          <div id="no-drivers-msg" style="font-size:0.8rem;color:var(--muted);margin-top:0.5rem;display:none;">Engir samþykktir bílstjórar enn</div>
+        </div>
+
+        <div class="form-group">
+          <label>Athugasemdir (valkvæmt)</label>
+          <textarea id="job-notes" placeholder="Sérstök fyrirmæli..."></textarea>
+        </div>
+
+        <div class="send-row">
+          <button class="btn btn-outline" onclick="saveJob()">Vista</button>
+          <button class="btn btn-rust" onclick="createJob()">Senda verkefni</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAFTS -->
+    <div class="tab-panel" id="tab-drafts">
+      <div id="drafts-list"></div>
+    </div>
+
+    <!-- REQUESTS -->
+    <div class="tab-panel" id="tab-requests">
+      <div class="section-heading">Hlekk fyrir bílstjóra</div>
+      <div class="form-card" style="margin-bottom:1rem;">
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem;">Sendu þennan hlekk á bílstjóra í tölvupósti eða SMS. Aðeins þeir sem hafa hlekkinn geta búið til aðgang.</p>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input id="invite-link-display" type="text" readonly style="flex:1;font-size:0.8rem;background:var(--warm);cursor:default;" />
+          <button class="btn btn-ink btn-sm" onclick="copyInviteLink()">Afrita</button>
+        </div>
+      </div>
+      <div class="section-heading">Beiðnir um aðgang</div>
+      <div id="requests-list"></div>
+      <div class="section-heading">Samþykktir bílstjórar</div>
+      <div id="approved-drivers-list"></div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const DIRECTOR_PASSWORD = 'fura2024';
+
+  function getData() {
+    const d = JSON.parse(localStorage.getItem('fura_data') || 'null') || {};
+    d.jobs = d.jobs || [];
+    d.driverRequests = d.driverRequests || [];
+    d.approvedDrivers = d.approvedDrivers || [];
+    return d;
+  }
+  function saveData(d) { localStorage.setItem('fura_data', JSON.stringify(d)); }
+
+  function doLogin() {
+    const pw = document.getElementById('login-password').value;
+    if (pw !== DIRECTOR_PASSWORD) { document.getElementById('login-error').style.display = 'block'; return; }
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderJobsList();
+    updateRequestsBadge();
+  }
+  function doLogout() {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-password').value = '';
+  }
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'jobs') renderJobsList();
+    if (name === 'drafts') renderDrafts();
+    if (name === 'new-job') renderDriverButtons();
+    if (name === 'requests') renderRequests();
+  }
+
+  function updateRequestsBadge() {
+    const d = getData();
+    const count = d.driverRequests.length;
+    const btn = document.getElementById('requests-tab-btn');
+    const existing = btn.querySelector('.badge');
+    if (existing) existing.remove();
+    if (count > 0) btn.innerHTML = `Beiðnir <span class="badge">${count}</span>`;
+    else btn.textContent = 'Beiðnir';
+  }
+
+  // ── DRIVER BUTTONS ─────────────────────────────────────────────────────────
+
+  function renderDriverButtons() {
+    const d = getData();
+    const group = document.getElementById('job-driver-group');
+    const noMsg = document.getElementById('no-drivers-msg');
+    const currentSelected = getSelected('job-driver-group');
+
+    group.innerHTML = `<button type="button" class="option-btn${currentSelected === 'all' ? ' selected' : ''}" onclick="selectOption('job-driver-group', this, 'all')">Senda á alla</button>`;
+
+    d.approvedDrivers.forEach(driver => {
+      const val = driver.id;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'option-btn' + (currentSelected === val ? ' selected' : '');
+      btn.textContent = driver.name;
+      btn.onclick = () => selectOption('job-driver-group', btn, val, driver.name);
+      group.appendChild(btn);
+    });
+
+    noMsg.style.display = d.approvedDrivers.length === 0 ? 'block' : 'none';
+  }
+
+  // ── OPTION BUTTONS ─────────────────────────────────────────────────────────
+
+  const driverLabelMap = {};
+
+  function selectOption(groupId, btn, value, label) {
+    document.querySelectorAll(`#${groupId} .option-btn`).forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    btn.dataset.value = value;
+    if (label) driverLabelMap[value] = label;
+
+    const otherMap = {
+      'job-type-group': ['job-type-other-wrap', 'annad-type'],
+      'job-material-group': ['job-material-other-wrap', 'annad'],
+      'job-equipment-group': ['job-equipment-other-wrap', 'annad-equip'],
+    };
+    if (otherMap[groupId]) {
+      const [wrapId, triggerVal] = otherMap[groupId];
+      document.getElementById(wrapId).style.display = value === triggerVal ? 'block' : 'none';
+    }
+  }
+
+  function getSelected(groupId) {
+    const btn = document.querySelector(`#${groupId} .option-btn.selected`);
+    return btn ? btn.dataset.value : '';
+  }
+
+  // ── FORM ───────────────────────────────────────────────────────────────────
+
+  function collectFormData() {
+    const jobType = getSelected('job-type-group');
+    const material = getSelected('job-material-group');
+    const equipment = getSelected('job-equipment-group');
+    const driver = getSelected('job-driver-group');
+    const d = getData();
+    const approvedDriver = d.approvedDrivers.find(dr => dr.id === driver);
+
+    const jobTypeLabels = { sekja: 'Sækja gám', losa: 'Losa gám', skipta: 'Skipta gám', 'annad-type': document.getElementById('job-type-other').value.trim() };
+    const materialLabels = { jarn: 'Járn', timbur: 'Timbur', annad: document.getElementById('job-material-other').value.trim() };
+    const equipmentLabels = { 'stor-gamur': 'Stór gámur', 'litill-gamur': 'Lítill gámur', krani: 'Krani', pallbill: 'Pallbíll', trailer: 'Trailer', 'annad-equip': document.getElementById('job-equipment-other').value.trim() };
+
+    return {
+      date: document.getElementById('job-date').value,
+      company: document.getElementById('job-company').value.trim(),
+      where: document.getElementById('job-where').value.trim(),
+      locationExtra: document.getElementById('job-location-extra').value.trim(),
+      phone: document.getElementById('job-phone').value.trim(),
+      contact: document.getElementById('job-contact').value.trim(),
+      jobType, jobTypeLabel: jobTypeLabels[jobType] || '',
+      material, materialLabel: materialLabels[material] || '',
+      equipment, equipmentLabel: equipmentLabels[equipment] || '',
+      driver, driverLabel: driver === 'all' ? 'Allir bílstjórar' : (approvedDriver ? approvedDriver.name : (driverLabelMap[driver] || driver)),
+      notes: document.getElementById('job-notes').value.trim()
+    };
+  }
+
+  function validate(data, requireAll) {
+    if (!requireAll) return true;
+    if (!data.date || !data.company || !data.where || !data.jobType || !data.material || !data.equipment || !data.driver) { showToast('Fylltu út alla nauðsynlega reiti'); return false; }
+    if (data.jobType === 'annad-type' && !data.jobTypeLabel) { showToast('Lýstu tegund verkefnis'); return false; }
+    if (data.material === 'annad' && !data.materialLabel) { showToast('Lýstu efninu'); return false; }
+    if (data.equipment === 'annad-equip' && !data.equipmentLabel) { showToast('Lýstu tækjaþörf'); return false; }
+    return true;
+  }
+
+  function clearForm() {
+    ['job-date','job-company','job-where','job-location-extra','job-phone','job-contact','job-notes','job-type-other','job-material-other','job-equipment-other'].forEach(id => document.getElementById(id).value = '');
+    ['job-type-group','job-material-group','job-equipment-group','job-driver-group'].forEach(g =>
+      document.querySelectorAll(`#${g} .option-btn`).forEach(b => b.classList.remove('selected'))
+    );
+    ['job-type-other-wrap','job-material-other-wrap','job-equipment-other-wrap'].forEach(id =>
+      document.getElementById(id).style.display = 'none'
+    );
+  }
+
+  let _editingJobId = null;
+  let _editingJobStatus = null;
+
+  function editJob(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val || ''; };
+    setVal('job-date', job.date); setVal('job-company', job.company);
+    setVal('job-where', job.where); setVal('job-location-extra', job.locationExtra);
+    setVal('job-phone', job.phone); setVal('job-contact', job.contact); setVal('job-notes', job.notes);
+    const restoreOption = (groupId, value, wrapId, inputId, label) => {
+      document.querySelectorAll(`#${groupId} .option-btn`).forEach(b => { if (b.dataset.value === value) b.classList.add('selected'); });
+      if (wrapId && ['annad','annad-type','annad-equip'].includes(value)) { document.getElementById(wrapId).style.display = 'block'; setVal(inputId, label); }
+    };
+    restoreOption('job-type-group', job.jobType, 'job-type-other-wrap', 'job-type-other', job.jobTypeLabel);
+    restoreOption('job-material-group', job.material, 'job-material-other-wrap', 'job-material-other', job.materialLabel);
+    restoreOption('job-equipment-group', job.equipment, 'job-equipment-other-wrap', 'job-equipment-other', job.equipmentLabel);
+    renderDriverButtons();
+    setTimeout(() => {
+      document.querySelectorAll('#job-driver-group .option-btn').forEach(b => { if (b.dataset.value === job.driver) b.classList.add('selected'); });
+    }, 50);
+    _editingJobId = id;
+    _editingJobStatus = job.status;
+    switchTab('new-job', document.querySelectorAll('.tab-btn')[1]);
+    showToast('Breyttu og sendu aftur');
+  }
+
+  function createJob() {
+    const data = collectFormData();
+    if (!validate(data, true)) return;
+    const d = getData();
+    if (_editingJobId) {
+      d.jobs = d.jobs.filter(j => j.id !== _editingJobId);
+      d.jobs.unshift({ id: _editingJobId, ...data, status: _editingJobStatus || 'new', createdAt: new Date().toISOString() });
+      _editingJobId = null; _editingJobStatus = null;
+      showToast('Verkefni uppfært!');
+    } else {
+      d.jobs.unshift({ id: Date.now().toString(), ...data, status: 'new', createdAt: new Date().toISOString() });
+      showToast('Verkefni sent!');
+    }
+    saveData(d);
+    clearForm();
+    switchTab('jobs', document.querySelector('.tab-btn'));
+  }
+
+  function saveJob() {
+    const data = collectFormData();
+    const d = getData();
+    const id = _editingJobId || Date.now().toString();
+    if (_editingJobId) d.jobs = d.jobs.filter(j => j.id !== _editingJobId);
+    d.jobs.unshift({ id, ...data, status: 'draft', createdAt: new Date().toISOString() });
+    _editingJobId = null; _editingJobStatus = null;
+    saveData(d);
+    clearForm();
+    showToast('Verkefni vistað');
+    const draftsBtn = document.querySelectorAll('.tab-btn')[2];
+    switchTab('drafts', draftsBtn);
+  }
+
+  // ── JOBS ───────────────────────────────────────────────────────────────────
+
+  function renderJobsList() {
+    const d = getData();
+    const active = d.jobs.filter(j => j.status === 'new' || j.status === 'onway');
+    const done = d.jobs.filter(j => j.status === 'done');
+    document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engin virk verkefni</div>';
+    document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engin lokið verkefni</div>';
+  }
+
+  function renderDrafts() {
+    const d = getData();
+    const drafts = d.jobs.filter(j => j.status === 'draft');
+    document.getElementById('drafts-list').innerHTML = drafts.length ? drafts.map(draftCard).join('') : '<div class="empty-state"><div class="icon">📝</div>Engin vistuð verkefni</div>';
+  }
+
+  function jobCard(job) {
+    const statusLabel = { new: 'Sent', onway: 'Á leiðinni', done: 'Lokið' };
+    const statusBadge = { new: 'badge-new', onway: 'badge-onway', done: 'badge-done' };
+    return `
+      <div class="job-card status-${job.status}">
+        <div class="job-header">
+          <div><div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div><div class="job-meta">${job.date || '—'}</div></div>
+          <span class="status-badge ${statusBadge[job.status]}">${statusLabel[job.status]}</span>
+        </div>
+        <hr class="job-divider"/>
+        <div class="job-detail"><strong>Fyrirtæki:</strong> ${job.company || '—'}</div>
+        <div class="job-detail"><strong>Staðsetning:</strong> ${job.where || '—'}</div>
+        ${job.locationExtra ? `<div class="job-detail"><strong>Annað:</strong> ${job.locationExtra}</div>` : ''}
+        ${job.phone ? `<div class="job-detail"><strong>Sími:</strong> ${job.phone}</div>` : ''}
+        ${job.contact ? `<div class="job-detail"><strong>Tengill:</strong> ${job.contact}</div>` : ''}
+        <hr class="job-divider"/>
+        <div class="job-detail"><strong>Efni:</strong> ${job.material === 'annad' ? `<span class="annad-tag">${job.materialLabel}</span>` : (job.materialLabel || '—')}</div>
+        <div class="job-detail"><strong>Tækjaþörf:</strong> ${job.equipment === 'annad-equip' ? `<span class="annad-tag">${job.equipmentLabel}</span>` : (job.equipmentLabel || '—')}</div>
+        <hr class="job-divider"/>
+        <div class="job-detail"><strong>Bílstjóri:</strong> ${job.driverLabel || '—'}</div>
+        ${job.notes ? `<div class="job-detail"><strong>Athugasemd:</strong> ${job.notes}</div>` : ''}
+        ${job.containerNumber ? `<div class="job-detail"><strong>Gámanúmer:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''}
+        <div class="job-actions">
+          <button class="btn btn-outline btn-sm" onclick="editJob('${job.id}')">Breyta</button>
+          ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button>` : ''}
+          <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
+        </div>
+      </div>`;
+  }
+
+  function draftCard(job) {
+    const parts = [job.jobTypeLabel, job.materialLabel, job.equipmentLabel].filter(Boolean);
+    const summary = parts.length ? parts.join(' · ') : 'Verkefni í vinnslu';
+    return `
+      <div class="job-card status-draft">
+        <div class="job-header">
+          <div><div class="job-title">${summary}</div><div class="job-meta">${job.date || 'Dagsetning ekki valin'}</div></div>
+          <span class="status-badge badge-draft">Vistað</span>
+        </div>
+        ${job.company ? `<div class="job-detail"><strong>Fyrirtæki:</strong> ${job.company}</div>` : ''}
+        ${job.where ? `<div class="job-detail"><strong>Staðsetning:</strong> ${job.where}</div>` : ''}
+        ${job.driverLabel ? `<div class="job-detail"><strong>Bílstjóri:</strong> ${job.driverLabel}</div>` : ''}
+        <div class="job-actions">
+          <button class="btn btn-ink btn-sm" onclick="editDraft('${job.id}')">Halda áfram</button>
+          <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
+        </div>
+      </div>`;
+  }
+
+  function editDraft(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    setVal('job-date', job.date); setVal('job-company', job.company); setVal('job-party', job.party);
+    setVal('job-where', job.where); setVal('job-location-extra', job.locationExtra);
+    setVal('job-phone', job.phone); setVal('job-contact', job.contact); setVal('job-notes', job.notes);
+
+    const restoreOption = (groupId, value, wrapId, inputId, label) => {
+      document.querySelectorAll(`#${groupId} .option-btn`).forEach(b => {
+        if (b.dataset.value === value) b.classList.add('selected');
+      });
+      const isOther = ['annad','annad-type','annad-equip'].includes(value);
+      if (wrapId && isOther) { document.getElementById(wrapId).style.display = 'block'; setVal(inputId, label); }
+    };
+    restoreOption('job-type-group', job.jobType, 'job-type-other-wrap', 'job-type-other', job.jobTypeLabel);
+    restoreOption('job-material-group', job.material, 'job-material-other-wrap', 'job-material-other', job.materialLabel);
+    restoreOption('job-equipment-group', job.equipment, 'job-equipment-other-wrap', 'job-equipment-other', job.equipmentLabel);
+
+    d.jobs = d.jobs.filter(j => j.id !== id);
+    saveData(d);
+    renderDriverButtons();
+    switchTab('new-job', document.querySelectorAll('.tab-btn')[1]);
+    showToast('Verkefni opnað til breytinga');
+  }
+
+  function reopenJob(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (job) { job.status = 'new'; delete job.containerNumber; }
+    saveData(d);
+    renderJobsList();
+    showToast('Verkefni opnað aftur');
+  }
+
+  function deleteJob(id) {
+    if (!confirm('Eyða þessu verkefni?')) return;
+    const d = getData();
+    d.jobs = d.jobs.filter(j => j.id !== id);
+    saveData(d);
+    renderJobsList(); renderDrafts();
+    showToast('Verkefni eytt');
+  }
+
+  // ── REQUESTS ───────────────────────────────────────────────────────────────
+
+  const INVITE_TOKEN = 'fura_drivers';
+
+  function getInviteLink() {
+    const base = window.location.href.replace('director.html', 'driver.html').split('?')[0];
+    return base + '?invite=' + INVITE_TOKEN;
+  }
+
+  function copyInviteLink() {
+    const link = getInviteLink();
+    navigator.clipboard.writeText(link).then(() => showToast('Hlekkur afritaður!')).catch(() => {
+      document.getElementById('invite-link-display').select();
+      document.execCommand('copy');
+      showToast('Hlekkur afritaður!');
+    });
+  }
+
+  function renderRequests() {
+    document.getElementById('invite-link-display').value = getInviteLink();
+    const d = getData();
+    const reqEl = document.getElementById('requests-list');
+    const apprEl = document.getElementById('approved-drivers-list');
+
+    reqEl.innerHTML = d.driverRequests.length ? d.driverRequests.map(r => `
+      <div class="request-card">
+        <div>
+          <div class="request-name">${r.name}</div>
+          <div class="request-sub">Bíður samþykkis</div>
+        </div>
+        <div class="request-actions">
+          <button class="btn btn-green btn-sm" onclick="approveDriver('${r.id}')">Samþykkja</button>
+          <button class="btn btn-red btn-sm" onclick="rejectDriver('${r.id}')">Hafna</button>
+        </div>
+      </div>`).join('') : '<div class="empty-state" style="padding:1.5rem 0;">Engar beiðnir</div>';
+
+    apprEl.innerHTML = d.approvedDrivers.length ? d.approvedDrivers.map(dr => `
+      <div class="driver-card">
+        <div class="driver-name">${dr.name}</div>
+        <button class="btn btn-red btn-sm" onclick="removeDriver('${dr.id}')">Fjarlægja</button>
+      </div>`).join('') : '<div class="empty-state" style="padding:1rem 0;">Engir samþykktir bílstjórar</div>';
+  }
+
+  function approveDriver(id) {
+    const d = getData();
+    const req = d.driverRequests.find(r => r.id === id);
+    if (!req) return;
+    d.driverRequests = d.driverRequests.filter(r => r.id !== id);
+    d.approvedDrivers.push({ id: req.id, name: req.name, password: req.password });
+    saveData(d);
+    renderRequests();
+    updateRequestsBadge();
+    showToast(req.name + ' samþykkt!');
+  }
+
+  function rejectDriver(id) {
+    const d = getData();
+    const req = d.driverRequests.find(r => r.id === id);
+    d.driverRequests = d.driverRequests.filter(r => r.id !== id);
+    saveData(d);
+    renderRequests();
+    updateRequestsBadge();
+    showToast('Beiðni hafnað');
+  }
+
+  function removeDriver(id) {
+    if (!confirm('Fjarlægja þennan bílstjóra?')) return;
+    const d = getData();
+    d.approvedDrivers = d.approvedDrivers.filter(dr => dr.id !== id);
+    saveData(d);
+    renderRequests();
+    showToast('Bílstjóri fjarlægður');
+  }
+
+  // Auto-refresh when driver updates a job
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'fura_data') { renderJobsList(); updateRequestsBadge(); }
+  });
+  setInterval(function() { renderJobsList(); updateRequestsBadge(); }, 10000);
+
+  // Auto-refresh when drivers update jobs
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'fura_data') {
+      const activeTab = document.querySelector('.tab-panel.active');
+      if (activeTab && activeTab.id === 'tab-jobs') renderJobsList();
+      if (activeTab && activeTab.id === 'tab-requests') renderRequests();
+      updateRequestsBadge();
+    }
+  });
+  setInterval(function() {
+    const activeTab = document.querySelector('.tab-panel.active');
+    if (activeTab && activeTab.id === 'tab-jobs') renderJobsList();
+    updateRequestsBadge();
+  }, 10000);
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+</script>
+</body>
+</html>
