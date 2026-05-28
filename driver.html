@@ -163,6 +163,7 @@
     .job-detail strong { color: var(--ink); min-width: 90px; flex-shrink: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; padding-top: 0.1rem; }
     .phone-link { color: var(--rust); text-decoration: none; font-weight: 700; font-size: 1rem; }
     .annad-tag { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; border-radius: 5px; padding: 0.15rem 0.5rem; font-weight: 700; font-size: 0.85rem; }
+    .job-image { width: 100%; border-radius: 8px; margin-top: 0.75rem; max-height: 220px; object-fit: cover; border: 1.5px solid var(--mid); display: block; }
 
     .copy-btn {
       margin-left: auto; background: var(--mid); border: none;
@@ -488,6 +489,7 @@
         <div class="job-detail"><strong>Efni</strong> ${job.material === 'annad' ? `<span class="annad-tag">${job.materialLabel}</span>` : (job.materialLabel || '—')}</div>
         <div class="job-detail"><strong>Tækjaþörf</strong> ${job.equipment === 'annad-equip' ? `<span class="annad-tag">${job.equipmentLabel}</span>` : (job.equipmentLabel || '—')}</div>
         ${job.notes ? `<div class="job-detail"><strong>Athugasemd</strong> ${job.notes}</div>` : ''}
+        ${job.image ? `<hr class="job-divider"/><img src="${job.image}" style="width:100%;border-radius:8px;max-height:220px;object-fit:cover;" alt="Mynd" />` : ''}
         ${job.status === 'done' ? `<hr class="job-divider"/><div class="job-detail"><strong>Gámanúmer</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumber || '—'}</span></div>` : ''}
         ${isAll ? `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="claimJob('${job.id}')">✓ Taka við verkefni</button></div>` : ''}
         ${!isAll && job.status === 'new' ? `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="markAccepted('${job.id}')">✓ Samþykkja verkefni</button></div>` : ''}
