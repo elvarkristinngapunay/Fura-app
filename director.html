@@ -246,6 +246,7 @@
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'sekja')">Sækja gám</button>
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'losa')">Losa gám</button>
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'skipta')">Skipta gám</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'fara')">Fara með gám</button>
             <button type="button" class="option-btn annad-btn" onclick="selectOption('job-type-group', this, 'annad-type')">Annað</button>
           </div>
           <div class="other-input" id="job-type-other-wrap">
@@ -491,7 +492,7 @@
     const d = getData();
     const approvedDriver = d.approvedDrivers.find(dr => dr.id === driver);
 
-    const jobTypeLabels = { sekja: 'Sækja gám', losa: 'Losa gám', skipta: 'Skipta gám', 'annad-type': document.getElementById('job-type-other').value.trim() };
+    const jobTypeLabels = { sekja: 'Sækja gám', losa: 'Losa gám', skipta: 'Skipta gám', fara: 'Fara með gám', 'annad-type': document.getElementById('job-type-other').value.trim() };
     const materialLabels = { jarn: 'Járn', timbur: 'Timbur', annad: document.getElementById('job-material-other').value.trim() };
     const equipmentLabels = { 'stor-gamur': 'Stór gámur', 'litill-gamur': 'Lítill gámur', krani: 'Krani', pallbill: 'Pallbíll', trailer: 'Trailer', 'annad-equip': document.getElementById('job-equipment-other').value.trim() };
 
