@@ -514,10 +514,10 @@
         actionBlock = `
           <div class="container-input-wrap">
             <label>Gámanúmer — Tekinn</label>
-            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Númer á gámi sem tekinn..." inputmode="numeric" />
+            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Númer á gámi sem tekinn..." />
             <label style="margin-top:0rem;display:block;">Gámanúmer — Settur</label>
             <div class="container-row" style="margin-top:0.4rem;">
-              <input type="text" id="container-settur-${job.id}" placeholder="Númer á gámi sem settur..." inputmode="numeric" />
+              <input type="text" id="container-settur-${job.id}" placeholder="Númer á gámi sem settur..." />
               <button class="btn btn-green" onclick="markDone('${job.id}', true)">Sótt ✓</button>
             </div>
           </div>
@@ -527,7 +527,7 @@
           <div class="container-input-wrap">
             <label>Gámanúmer</label>
             <div class="container-row">
-              <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." inputmode="numeric" />
+              <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." />
               <button class="btn btn-green" onclick="markDone('${job.id}')">Sótt ✓</button>
             </div>
           </div>
