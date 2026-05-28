@@ -139,7 +139,19 @@
     .job-card.status-all      { border-left-color: var(--yellow); }
     .job-card.status-accepted { border-left-color: var(--yellow); }
     .job-card.status-onway    { border-left-color: #1a6bb5; }
+    .job-card.status-delayed  { border-left-color: #7c3aed; }
     .job-card.status-done     { border-left-color: var(--green); }
+
+    /* ── DELAY FORM ── */
+    .delay-form { margin-top:1rem; padding:1rem; background:var(--warm); border-radius:10px; border:1.5px solid var(--mid); }
+    .delay-form-label { font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.4rem; display:block; }
+    .delay-textarea { width:100%; padding:0.75rem; border:1.5px solid var(--mid); border-radius:8px; font-size:0.9rem; min-height:80px; resize:vertical; outline:none; font-family:inherit; transition:border-color 0.2s; }
+    .delay-textarea:focus { border-color:#7c3aed; }
+    .delay-img-btn { font-size:0.8rem; font-weight:600; padding:0.4rem 0.9rem; border:1.5px dashed var(--mid); border-radius:6px; background:var(--white); color:var(--muted); cursor:pointer; }
+    .delay-info { margin-top:0.75rem; padding:0.75rem 1rem; background:#f5f3ff; border-radius:8px; border-left:3px solid #7c3aed; }
+    .delay-info-label { font-size:0.72rem; font-weight:800; color:#6d28d9; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.3rem; }
+    .container-full-input { width:100%; padding:0.8rem 1rem; border:1.5px solid var(--mid); border-radius:8px; font-size:1rem; outline:none; margin-bottom:0.5rem; transition:border-color 0.2s; }
+    .container-full-input:focus { border-color:var(--green); }
 
     .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.9rem; gap: 0.75rem; }
     .job-title { font-size: 1.15rem; font-weight: 900; letter-spacing: -0.01em; line-height: 1.2; }
@@ -155,6 +167,7 @@
     .badge-all      { background: #fef9ec; color: #b7760a; }
     .badge-accepted { background: #fff3cd; color: #856404; }
     .badge-onway    { background: #ddeeff; color: #1a6bb5; }
+    .badge-delayed  { background: #ede9fe; color: #6d28d9; }
     .badge-done     { background: #eaf4ec; color: var(--green); }
 
     .job-divider { border: none; border-top: 1px solid var(--mid); margin: 0.8rem 0; }
@@ -318,6 +331,8 @@
 
   let currentDriverName = null;
   let currentTab = 'utkolun';
+  let _delayingJobId = null;
+  let _delayImageData = null;
 
   function getData() { return JSON.parse(localStorage.getItem('fura_data') || 'null') || { jobs: [], driverRequests: [], approvedDrivers: [] }; }
   function saveData(d) { localStorage.setItem('fura_data', JSON.stringify(d)); }
@@ -427,9 +442,9 @@
     const newJobs = getNewJobs(d);
     renderList('utkolun-list', newJobs, 'Útköllun', '🔔', 'Engar nýjar útköllur');
 
-    // Í vinnslu — accepted or onway
+    // Í vinnslu — accepted, onway, or delayed
     const onwayJobs = d.jobs.filter(j =>
-      nameMatch(j.driverLabel, currentDriverName) && (j.status === 'accepted' || j.status === 'onway')
+      nameMatch(j.driverLabel, currentDriverName) && (j.status === 'accepted' || j.status === 'onway' || j.status === 'delayed')
     );
     renderList('vinnsla-list', onwayJobs, 'Í vinnslu', '🚛', 'Ekkert í vinnslu');
 
@@ -454,14 +469,87 @@
 
   function jobCard(job) {
     const isAll = job.driver === 'all';
-    const statusLabel = { new: isAll ? 'Opið' : 'Ný útköllun', accepted: 'Samþykkt', onway: 'Á leiðinni', done: 'Lokið' };
-    const statusBadgeClass = { new: isAll ? 'badge-all' : 'badge-new', accepted: 'badge-accepted', onway: 'badge-onway', done: 'badge-done' };
+    const statusLabel = { new: isAll ? 'Opið' : 'Ný útköllun', accepted: 'Samþykkt', onway: 'Á leiðinni', delayed: 'Frestað', done: 'Lokið' };
+    const statusBadgeClass = { new: isAll ? 'badge-all' : 'badge-new', accepted: 'badge-accepted', onway: 'badge-onway', delayed: 'badge-delayed', done: 'badge-done' };
     const cardClass = isAll ? 'status-all' : `status-${job.status}`;
-
     const recipientLabel = isAll ? 'Sent á alla' : `Sent til þín — ${job.driverLabel || currentDriverName}`;
-    const recipientStyle = isAll
-      ? 'background:#fff3cd;color:#856404;border:1.5px solid #f0d060;'
-      : 'background:#e8f4ff;color:#1a5fa8;border:1.5px solid #b3d4f5;';
+    const recipientStyle = isAll ? 'background:#fff3cd;color:#856404;border:1.5px solid #f0d060;' : 'background:#e8f4ff;color:#1a5fa8;border:1.5px solid #b3d4f5;';
+    const isDelaying = _delayingJobId === job.id;
+    const isSkipta = job.jobType === 'skipta';
+
+    // Done container number block
+    let doneBlock = '';
+    if (job.status === 'done') {
+      doneBlock = `<hr class="job-divider"/>`;
+      if (job.containerNumberTekinn) {
+        doneBlock += `<div class="job-detail"><strong>Gám tekinn</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumberTekinn}</span></div>`;
+        doneBlock += `<div class="job-detail"><strong>Gám settur</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumberSettur || '—'}</span></div>`;
+      } else {
+        doneBlock += `<div class="job-detail"><strong>Gámanúmer</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumber || '—'}</span></div>`;
+      }
+    }
+
+    // Action block
+    let actionBlock = '';
+    if (isAll && job.status === 'new') {
+      actionBlock = `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="claimJob('${job.id}')">✓ Taka við verkefni</button></div>`;
+    } else if (!isAll && job.status === 'new') {
+      actionBlock = `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="markAccepted('${job.id}')">✓ Samþykkja verkefni</button></div>`;
+    } else if (job.status === 'delayed') {
+      actionBlock = `
+        <div class="delay-info">
+          <div class="delay-info-label">⏸ Frestað</div>
+          ${job.delayNote ? `<div style="font-size:0.9rem;color:var(--ink);margin-top:0.2rem;">${job.delayNote}</div>` : ''}
+          ${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:8px;margin-top:0.6rem;max-height:160px;object-fit:cover;" />` : ''}
+        </div>
+        <div class="status-actions" style="margin-top:0.75rem;"><button class="btn btn-rust btn-full" onclick="resumeJob('${job.id}')">▶ Halda áfram</button></div>`;
+    } else if (job.status === 'accepted' && !isDelaying) {
+      actionBlock = `
+        <div class="status-actions" style="display:flex;gap:0.5rem;">
+          <button class="btn btn-rust" style="flex:1;" onclick="markOnWay('${job.id}')">🚛 Á leiðinni</button>
+          <button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button>
+        </div>`;
+    } else if (job.status === 'onway' && !isDelaying) {
+      if (isSkipta) {
+        actionBlock = `
+          <div class="container-input-wrap">
+            <label>Gámanúmer — Tekinn</label>
+            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Númer á gámi sem tekinn..." inputmode="numeric" />
+            <label style="margin-top:0rem;display:block;">Gámanúmer — Settur</label>
+            <div class="container-row" style="margin-top:0.4rem;">
+              <input type="text" id="container-settur-${job.id}" placeholder="Númer á gámi sem settur..." inputmode="numeric" />
+              <button class="btn btn-green" onclick="markDone('${job.id}', true)">Sótt ✓</button>
+            </div>
+          </div>
+          <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
+      } else {
+        actionBlock = `
+          <div class="container-input-wrap">
+            <label>Gámanúmer</label>
+            <div class="container-row">
+              <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." inputmode="numeric" />
+              <button class="btn btn-green" onclick="markDone('${job.id}')">Sótt ✓</button>
+            </div>
+          </div>
+          <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
+      }
+    }
+
+    // Delay form (shown when driver clicks Fresta)
+    const delayFormBlock = isDelaying ? `
+      <div class="delay-form">
+        <label class="delay-form-label">Ástæða töfar</label>
+        <textarea id="delay-note-${job.id}" class="delay-textarea" placeholder="Hvers vegna er verið að fresta?..."></textarea>
+        <div style="margin-top:0.6rem;">
+          <input type="file" id="delay-img-input-${job.id}" accept="image/*" style="display:none" onchange="handleDelayImage('${job.id}', this)" />
+          <button type="button" class="delay-img-btn" onclick="document.getElementById('delay-img-input-${job.id}').click()">📷 Bæta við mynd</button>
+          <img id="delay-img-preview-${job.id}" src="" style="display:none;width:100%;border-radius:8px;margin-top:0.5rem;max-height:160px;object-fit:cover;" />
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+          <button class="btn btn-outline btn-full btn-sm" onclick="cancelDelay()">Hætta við</button>
+          <button class="btn btn-rust btn-full btn-sm" onclick="submitDelay('${job.id}')">Staðfesta töf</button>
+        </div>
+      </div>` : '';
 
     return `
       <div class="job-card ${cardClass}">
@@ -489,19 +577,10 @@
         <div class="job-detail"><strong>Efni</strong> ${job.material === 'annad' ? `<span class="annad-tag">${job.materialLabel}</span>` : (job.materialLabel || '—')}</div>
         <div class="job-detail"><strong>Tækjaþörf</strong> ${job.equipment === 'annad-equip' ? `<span class="annad-tag">${job.equipmentLabel}</span>` : (job.equipmentLabel || '—')}</div>
         ${job.notes ? `<div class="job-detail"><strong>Athugasemd</strong> ${job.notes}</div>` : ''}
-        ${job.image ? `<hr class="job-divider"/><img src="${job.image}" style="width:100%;border-radius:8px;max-height:220px;object-fit:cover;" alt="Mynd" />` : ''}
-        ${job.status === 'done' ? `<hr class="job-divider"/><div class="job-detail"><strong>Gámanúmer</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumber || '—'}</span></div>` : ''}
-        ${isAll ? `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="claimJob('${job.id}')">✓ Taka við verkefni</button></div>` : ''}
-        ${!isAll && job.status === 'new' ? `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="markAccepted('${job.id}')">✓ Samþykkja verkefni</button></div>` : ''}
-        ${job.status === 'accepted' ? `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="markOnWay('${job.id}')">🚛 Á leiðinni</button></div>` : ''}
-        ${job.status === 'onway' ? `
-          <div class="container-input-wrap">
-            <label>Gámanúmer</label>
-            <div class="container-row">
-              <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." inputmode="numeric" />
-              <button class="btn btn-green" onclick="markDone('${job.id}')">Sótt ✓</button>
-            </div>
-          </div>` : ''}
+        ${job.image ? `<img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
+        ${doneBlock}
+        ${actionBlock}
+        ${delayFormBlock}
       </div>`;
   }
 
@@ -536,16 +615,86 @@
     showToast('Merkt: Á leiðinni 🚛');
   }
 
-  function markDone(id) {
-    const containerNumber = document.getElementById('container-' + id).value.trim();
-    if (!containerNumber) { showToast('Sláðu inn gámanúmer'); return; }
+  function markDone(id, isSkipta) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
-    if (job) { job.status = 'done'; job.containerNumber = containerNumber; }
+    if (!job) return;
+    if (isSkipta) {
+      const tekinn = (document.getElementById('container-tekinn-' + id) || {value:''}).value.trim();
+      const settur = (document.getElementById('container-settur-' + id) || {value:''}).value.trim();
+      if (!tekinn || !settur) { showToast('Sláðu inn báðar gámanúmer'); return; }
+      job.containerNumberTekinn = tekinn;
+      job.containerNumberSettur = settur;
+    } else {
+      const num = (document.getElementById('container-' + id) || {value:''}).value.trim();
+      if (!num) { showToast('Sláðu inn gámanúmer'); return; }
+      job.containerNumber = num;
+    }
+    job.status = 'done';
     saveData(d); renderAll();
-    // Switch to klarud tab
     switchTab('klarud');
     showToast('Lokið! Gámanúmer skráð ✓');
+  }
+
+  function showDelayForm(id) {
+    _delayingJobId = id;
+    _delayImageData = null;
+    renderAll();
+    setTimeout(() => { const el = document.getElementById('delay-note-' + id); if (el) el.focus(); }, 60);
+  }
+
+  function cancelDelay() {
+    _delayingJobId = null;
+    _delayImageData = null;
+    renderAll();
+  }
+
+  function handleDelayImage(id, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const MAX = 900;
+        const scale = img.width > MAX ? MAX / img.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        _delayImageData = canvas.toDataURL('image/jpeg', 0.8);
+        const preview = document.getElementById('delay-img-preview-' + id);
+        if (preview) { preview.src = _delayImageData; preview.style.display = 'block'; }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function submitDelay(id) {
+    const noteEl = document.getElementById('delay-note-' + id);
+    const note = noteEl ? noteEl.value.trim() : '';
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    job.status = 'delayed';
+    job.delayNote = note || null;
+    job.delayImage = _delayImageData || null;
+    _delayingJobId = null;
+    _delayImageData = null;
+    saveData(d); renderAll();
+    showToast('Verkefni frestað ⏸');
+  }
+
+  function resumeJob(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    job.status = 'accepted';
+    job.delayNote = null;
+    job.delayImage = null;
+    saveData(d); renderAll();
+    showToast('Verkefni haldið áfram ▶');
   }
 
   function copyAddress(address) {

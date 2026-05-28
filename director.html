@@ -77,6 +77,7 @@
     .job-card.status-new      { border-left-color: var(--red);    box-shadow: 0 1px 6px rgba(192,57,43,0.15); }
     .job-card.status-accepted { border-left-color: var(--yellow); box-shadow: 0 1px 6px rgba(243,156,18,0.15); }
     .job-card.status-onway    { border-left-color: var(--blue);   box-shadow: 0 1px 6px rgba(26,107,181,0.15); }
+    .job-card.status-delayed  { border-left-color: #7c3aed;       box-shadow: 0 1px 6px rgba(124,58,237,0.15); }
     .job-card.status-done     { border-left-color: var(--green);  opacity: 0.75; }
     .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
     .job-title { font-size: 1.05rem; font-weight: 800; }
@@ -86,13 +87,18 @@
     .badge-new      { background: #fdecea; color: var(--red); }
     .badge-accepted { background: #fff3cd; color: #856404; }
     .badge-onway    { background: #ddeeff; color: var(--blue); }
+    .badge-delayed  { background: #ede9fe; color: #6d28d9; }
     .badge-done     { background: #eaf4ec; color: var(--green); }
+
+    .delay-info-dir { margin-top:0.5rem; padding:0.6rem 0.8rem; background:#f5f3ff; border-radius:8px; border-left:3px solid #7c3aed; font-size:0.875rem; }
+    .delay-info-dir strong { font-size:0.72rem; font-weight:800; color:#6d28d9; text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:0.2rem; }
 
     .driver-status-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.2rem; }
     .driver-tag { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 20px; white-space: nowrap; }
     .driver-tag-waiting  { background: #fdecea; color: var(--red); }
     .driver-tag-accepted { background: #fff3cd; color: #856404; }
     .driver-tag-onway    { background: #ddeeff; color: var(--blue); }
+    .driver-tag-delayed  { background: #ede9fe; color: #6d28d9; }
     .driver-tag-done     { background: #eaf4ec; color: var(--green); }
     .job-detail { font-size: 0.875rem; color: var(--muted); margin-bottom: 0.4rem; display: flex; gap: 0.5rem; }
     .job-detail strong { color: var(--ink); min-width: 85px; flex-shrink: 0; }
@@ -633,7 +639,7 @@
 
   function renderJobsList() {
     const d = getData();
-    const active = d.jobs.filter(j => ['new','accepted','onway'].includes(j.status));
+    const active = d.jobs.filter(j => ['new','accepted','onway','delayed'].includes(j.status));
     const done = d.jobs.filter(j => j.status === 'done');
     document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engin virk verkefni</div>';
     document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engin lokið verkefni</div>';
@@ -646,10 +652,10 @@
   }
 
   function jobCard(job) {
-    const statusLabel = { new: 'Bíður svars', accepted: 'Samþykkt', onway: 'Á leiðinni', done: 'Lokið' };
-    const statusBadge = { new: 'badge-new', accepted: 'badge-accepted', onway: 'badge-onway', done: 'badge-done' };
-    const driverTagClass = { new: 'driver-tag-waiting', accepted: 'driver-tag-accepted', onway: 'driver-tag-onway', done: 'driver-tag-done' };
-    const driverTagText = { new: '⏳ Bíður svars', accepted: '✓ Samþykkt', onway: '🚛 Á leiðinni', done: '✓ Lokið' };
+    const statusLabel = { new: 'Bíður svars', accepted: 'Samþykkt', onway: 'Á leiðinni', delayed: 'Frestað', done: 'Lokið' };
+    const statusBadge = { new: 'badge-new', accepted: 'badge-accepted', onway: 'badge-onway', delayed: 'badge-delayed', done: 'badge-done' };
+    const driverTagClass = { new: 'driver-tag-waiting', accepted: 'driver-tag-accepted', onway: 'driver-tag-onway', delayed: 'driver-tag-delayed', done: 'driver-tag-done' };
+    const driverTagText = { new: '⏳ Bíður svars', accepted: '✓ Samþykkt', onway: '🚛 Á leiðinni', delayed: '⏸ Frestað', done: '✓ Lokið' };
     return `
       <div class="job-card status-${job.status}">
         <div class="job-header">
@@ -674,7 +680,8 @@
           </div>
         </div>
         ${job.notes ? `<div class="job-detail"><strong>Athugasemd:</strong> ${job.notes}</div>` : ''}
-        ${job.containerNumber ? `<div class="job-detail"><strong>Gámanúmer:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''}
+        ${job.containerNumberTekinn ? `<div class="job-detail"><strong>Gám tekinn:</strong> <strong style="color:var(--green)">${job.containerNumberTekinn}</strong></div><div class="job-detail"><strong>Gám settur:</strong> <strong style="color:var(--green)">${job.containerNumberSettur || '—'}</strong></div>` : job.containerNumber ? `<div class="job-detail"><strong>Gámanúmer:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''}
+        ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
         <div class="job-actions">
           <button class="btn btn-outline btn-sm" onclick="editJob('${job.id}')">Breyta</button>
