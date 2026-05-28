@@ -457,8 +457,16 @@
     const statusBadgeClass = { new: isAll ? 'badge-all' : 'badge-new', accepted: 'badge-accepted', onway: 'badge-onway', done: 'badge-done' };
     const cardClass = isAll ? 'status-all' : `status-${job.status}`;
 
+    const recipientLabel = isAll ? 'Sent á alla' : `Sent til þín — ${job.driverLabel || currentDriverName}`;
+    const recipientStyle = isAll
+      ? 'background:#fff3cd;color:#856404;border:1.5px solid #f0d060;'
+      : 'background:#e8f4ff;color:#1a5fa8;border:1.5px solid #b3d4f5;';
+
     return `
       <div class="job-card ${cardClass}">
+        <div style="margin-bottom:0.75rem;">
+          <span style="${recipientStyle} font-size:0.72rem;font-weight:800;padding:0.25rem 0.7rem;border-radius:20px;letter-spacing:0.04em;text-transform:uppercase;">${recipientLabel}</span>
+        </div>
         <div class="job-header">
           <div style="min-width:0;flex:1;">
             <div class="job-title">${job.jobTypeLabel || '—'}</div>
