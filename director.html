@@ -79,6 +79,7 @@
     .job-card.status-onway    { border-left-color: var(--blue);   box-shadow: 0 1px 6px rgba(26,107,181,0.15); }
     .job-card.status-delayed  { border-left-color: #7a4f2c;       box-shadow: 0 1px 6px rgba(122,79,44,0.15); }
     .job-card.status-done     { border-left-color: var(--green);  opacity: 0.75; }
+    .job-card.status-archived { border-left-color: var(--muted); opacity: 0.8; }
     .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
     .job-title { font-size: 1.05rem; font-weight: 800; }
     .job-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
@@ -89,6 +90,7 @@
     .badge-onway    { background: #ddeeff; color: var(--blue); }
     .badge-delayed  { background: #f5ede3; color: #5c3310; }
     .badge-done     { background: #eaf4ec; color: var(--green); }
+    .badge-archived { background: #f0eeec; color: var(--muted); }
 
     .delay-info-dir { margin-top:0.5rem; padding:0.6rem 0.8rem; background:#f5ede3; border-radius:8px; border-left:3px solid #7a4f2c; font-size:0.875rem; }
     .delay-info-dir strong { font-size:0.72rem; font-weight:800; color:#5c3310; text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:0.2rem; }
@@ -160,6 +162,36 @@
     .modal-missing li:last-child { border-bottom: none; }
     .modal-actions { display: flex; gap: 0.75rem; }
     .modal-actions .btn { flex: 1; }
+
+    /* ── EXCEL COPY STRIP ── */
+    .excel-strip { margin-top: 0.85rem; background: #f0f7ff; border: 1.5px solid #c5ddf7; border-radius: 9px; padding: 0.75rem 1rem; }
+.excel-row { display: flex; align-items: stretch; gap: 0.4rem; }
+    .excel-cell { flex: 1; background: var(--white); border: 1px solid #c5ddf7; border-radius: 6px; padding: 0.55rem 0.75rem; font-size: 0.9rem; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .excel-copy-btn { padding: 0.55rem 1rem; border-radius: 6px; border: none; background: #1a6bb5; color: #fff; font-size: 0.82rem; font-weight: 800; cursor: pointer; flex-shrink: 0; transition: background 0.15s; white-space: nowrap; }
+    .excel-copy-btn:hover { background: #155a9a; }
+    .excel-copy-btn.copied { background: var(--green); }
+
+    /* ── GEYMSLA ── */
+    .geymsla-search-wrap { position: relative; margin-bottom: 1.25rem; }
+    .geymsla-search-wrap input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.75rem; border: 1.5px solid var(--mid); border-radius: 8px; font-size: 0.95rem; background: var(--white); color: var(--ink); outline: none; transition: border-color 0.2s; }
+    .geymsla-search-wrap input:focus { border-color: var(--rust); }
+    .geymsla-search-icon { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .geymsla-date-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .geymsla-date-field { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 120px; }
+    .geymsla-date-field label { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .geymsla-date-field input { padding: 0.6rem 0.75rem; border: 1.5px solid var(--mid); border-radius: 7px; font-size: 0.9rem; color: var(--ink); background: var(--white); outline: none; transition: border-color 0.2s; width: 100%; }
+    .geymsla-date-field input:focus { border-color: var(--rust); }
+    .geymsla-date-sep { font-size: 1.1rem; color: var(--muted); margin-top: 1.2rem; flex-shrink: 0; }
+    .geymsla-clear-btn { margin-top: 1.2rem; padding: 0.55rem 0.9rem; border-radius: 7px; border: 1.5px solid var(--mid); background: var(--white); color: var(--muted); font-size: 0.8rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: border-color 0.2s, color 0.2s; white-space: nowrap; }
+    .geymsla-clear-btn:hover { border-color: var(--rust); color: var(--rust); }
+    .geymsla-count { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.75rem; }
+    .archive-card { background: var(--white); border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 0.6rem; border-left: 3px solid var(--muted); box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .archive-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+    .archive-card-title { font-size: 0.95rem; font-weight: 800; }
+    .archive-card-date { font-size: 0.75rem; color: var(--muted); }
+    .archive-detail { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.2rem; display: flex; gap: 0.4rem; }
+    .archive-detail strong { color: var(--ink); min-width: 90px; flex-shrink: 0; }
+    .archive-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
   </style>
 </head>
 <body>
@@ -193,6 +225,7 @@
       <button class="tab-btn active" onclick="switchTab('jobs', this)">Verkefni</button>
       <button class="tab-btn" onclick="switchTab('new-job', this)">+ Nýtt</button>
       <button class="tab-btn" onclick="switchTab('drafts', this)">Vistuð</button>
+      <button class="tab-btn" onclick="switchTab('geymsla', this)">🗄 Geymsla</button>
       <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Beiðnir</button>
     </div>
 
@@ -211,42 +244,37 @@
 
         <div class="form-group">
           <label>Dagsetning</label>
-          <input type="date" id="job-date" />
+          <input type="date" id="job-date" style="font-size:1.2rem; padding: 1rem 1.1rem; font-weight:700; cursor:pointer;" />
         </div>
 
         <div class="form-group">
           <label>Fyrirtæki / Aðili</label>
-          <input type="text" id="job-company" placeholder="t.d. Ístak hf." />
+          <input type="text" id="job-company" />
         </div>
 
         <div class="form-group">
           <label>Staðsetning</label>
-          <input type="text" id="job-where" placeholder="t.d. Hringhellu 5, Hafnarfjörður" />
-        </div>
-
-        <div class="form-group">
-          <label>Annað (staðsetning)</label>
-          <input type="text" id="job-location-extra" placeholder="Viðbótarupplýsingar um staðsetningu..." />
+          <input type="text" id="job-where" />
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label>Sími</label>
-            <input type="tel" id="job-phone" placeholder="565 3557" />
+            <input type="tel" id="job-phone" />
           </div>
           <div class="form-group">
             <label>Tengill</label>
-            <input type="text" id="job-contact" placeholder="t.d. Jón Jónsson" />
+            <input type="text" id="job-contact" />
           </div>
         </div>
 
         <div class="form-group">
           <label>Tegund verkefnis</label>
           <div class="option-group" id="job-type-group">
-            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'sekja')">Sækja gám</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'sekja')">Taka gám</button>
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'losa')">Losa gám</button>
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'skipta')">Skipta gám</button>
-            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'fara')">Fara með gám</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'fara')">Vantar gám</button>
             <button type="button" class="option-btn annad-btn" onclick="selectOption('job-type-group', this, 'annad-type')">Annað</button>
           </div>
           <div class="other-input" id="job-type-other-wrap">
@@ -291,7 +319,7 @@
 
         <div class="form-group">
           <label>Athugasemdir (valkvæmt)</label>
-          <textarea id="job-notes" placeholder="Sérstök fyrirmæli..."></textarea>
+          <textarea id="job-notes"></textarea>
         </div>
 
         <div class="form-group">
@@ -317,6 +345,28 @@
     <!-- DRAFTS -->
     <div class="tab-panel" id="tab-drafts">
       <div id="drafts-list"></div>
+    </div>
+
+    <!-- GEYMSLA -->
+    <div class="tab-panel" id="tab-geymsla">
+      <div class="geymsla-search-wrap">
+        <svg class="geymsla-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="geymsla-search" placeholder="Leita eftir fyrirtæki eða gámanúmeri..." oninput="renderGeymsla()" />
+      </div>
+      <div class="geymsla-date-row">
+        <div class="geymsla-date-field">
+          <label>Frá</label>
+          <input type="date" id="geymsla-from" onchange="renderGeymsla()" />
+        </div>
+        <div class="geymsla-date-sep">–</div>
+        <div class="geymsla-date-field">
+          <label>Til</label>
+          <input type="date" id="geymsla-to" onchange="renderGeymsla()" />
+        </div>
+        <button class="geymsla-clear-btn" onclick="clearGeymslaFilters()">Hreinsa</button>
+      </div>
+      <div class="geymsla-count" id="geymsla-count"></div>
+      <div id="geymsla-list"></div>
     </div>
 
     <!-- REQUESTS -->
@@ -353,10 +403,67 @@
   </div>
 </div>
 
-<script>
-  const DIRECTOR_PASSWORD = 'fura2024';
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+  import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 
-  let _jobImageData = null; // base64 string of current image
+  const firebaseConfig = {
+    apiKey: "AIzaSyAdDfbGWGnBHqCxfBQvay36JDXLTPA12SY",
+    authDomain: "fura-app-d8efe.firebaseapp.com",
+    projectId: "fura-app-d8efe",
+    storageBucket: "fura-app-d8efe.firebasestorage.app",
+    messagingSenderId: "532668712662",
+    appId: "1:532668712662:web:4b64944b27e491174c2b77"
+  };
+
+  const fireApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fireApp);
+
+  // ── LOCAL CACHE (kept in sync by onSnapshot) ───────────────────────────────
+  let appData = { jobs: [], driverRequests: [], approvedDrivers: [] };
+  let _loggedIn = false;
+
+  function getData() { return appData; }
+
+  function cleanObj(obj) {
+    return JSON.parse(JSON.stringify(obj, (k, v) => v === undefined ? null : v));
+  }
+
+  // ── FIRESTORE WRITE HELPERS ────────────────────────────────────────────────
+  async function fsSetJob(job)       { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)); }
+  async function fsDeleteJob(id)     { await deleteDoc(doc(db,'jobs',id)); }
+  async function fsSetRequest(req)   { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)); }
+  async function fsDeleteRequest(id) { await deleteDoc(doc(db,'driverRequests',id)); }
+  async function fsSetDriver(dr)     { const {id,...d}=dr; await setDoc(doc(db,'approvedDrivers',id), cleanObj(d)); }
+  async function fsDeleteDriver(id)  { await deleteDoc(doc(db,'approvedDrivers',id)); }
+
+  // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
+  onSnapshot(collection(db,'jobs'), snap => {
+    appData.jobs = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (!_loggedIn) return;
+    const active = document.querySelector('.tab-panel.active');
+    if (!active) return;
+    if (active.id==='tab-jobs')    renderJobsList();
+    if (active.id==='tab-drafts')  renderDrafts();
+    if (active.id==='tab-geymsla') renderGeymsla();
+    updateRequestsBadge();
+  });
+  onSnapshot(collection(db,'driverRequests'), snap => {
+    appData.driverRequests = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (!_loggedIn) return;
+    updateRequestsBadge();
+    const active = document.querySelector('.tab-panel.active');
+    if (active && active.id==='tab-requests') renderRequests();
+  });
+  onSnapshot(collection(db,'approvedDrivers'), snap => {
+    appData.approvedDrivers = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (!_loggedIn) return;
+    const active = document.querySelector('.tab-panel.active');
+    if (active && active.id==='tab-requests') renderRequests();
+  });
+
+  const DIRECTOR_PASSWORD = 'fura2024';
+  let _jobImageData = null;
 
   function handleImageUpload(input) {
     const file = input.files[0];
@@ -388,31 +495,25 @@
     document.getElementById('image-preview-wrap').style.display = 'none';
   }
 
-  function getData() {
-    const d = JSON.parse(localStorage.getItem('fura_data') || 'null') || {};
-    d.jobs = d.jobs || [];
-    d.driverRequests = d.driverRequests || [];
-    d.approvedDrivers = d.approvedDrivers || [];
-    return d;
-  }
-  function saveData(d) { localStorage.setItem('fura_data', JSON.stringify(d)); }
-
-  function doLogin() {
+  window.doLogin = function() {
     const pw = document.getElementById('login-password').value;
     if (pw !== DIRECTOR_PASSWORD) { document.getElementById('login-error').style.display = 'block'; return; }
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    document.getElementById('job-date').value = todayISO();
+    _loggedIn = true;
     renderJobsList();
     updateRequestsBadge();
-  }
-  function doLogout() {
+  };
+  window.doLogout = function() {
+    _loggedIn = false;
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     document.getElementById('login-password').value = '';
-  }
-  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  };
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key==='Enter') window.doLogin(); });
 
-  function switchTab(name, btn) {
+  window.switchTab = function(name, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
@@ -421,11 +522,11 @@
     if (name === 'drafts') renderDrafts();
     if (name === 'new-job') renderDriverButtons();
     if (name === 'requests') renderRequests();
-  }
+    if (name === 'geymsla') window.clearGeymslaFilters();
+  };
 
   function updateRequestsBadge() {
-    const d = getData();
-    const count = d.driverRequests.length;
+    const count = appData.driverRequests.length;
     const btn = document.getElementById('requests-tab-btn');
     const existing = btn.querySelector('.badge');
     if (existing) existing.remove();
@@ -448,6 +549,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'option-btn' + (currentSelected === val ? ' selected' : '');
+      btn.dataset.value = val;
       btn.textContent = driver.name;
       btn.onclick = () => selectOption('job-driver-group', btn, val, driver.name);
       group.appendChild(btn);
@@ -460,7 +562,7 @@
 
   const driverLabelMap = {};
 
-  function selectOption(groupId, btn, value, label) {
+  window.selectOption = function(groupId, btn, value, label) {
     document.querySelectorAll(`#${groupId} .option-btn`).forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     btn.dataset.value = value;
@@ -475,7 +577,7 @@
       const [wrapId, triggerVal] = otherMap[groupId];
       document.getElementById(wrapId).style.display = value === triggerVal ? 'block' : 'none';
     }
-  }
+  };
 
   function getSelected(groupId) {
     const btn = document.querySelector(`#${groupId} .option-btn.selected`);
@@ -492,7 +594,7 @@
     const d = getData();
     const approvedDriver = d.approvedDrivers.find(dr => dr.id === driver);
 
-    const jobTypeLabels = { sekja: 'Sækja gám', losa: 'Losa gám', skipta: 'Skipta gám', fara: 'Fara með gám', 'annad-type': document.getElementById('job-type-other').value.trim() };
+    const jobTypeLabels = { sekja: 'Taka gám', losa: 'Losa gám', skipta: 'Skipta gám', fara: 'Vantar gám', 'annad-type': document.getElementById('job-type-other').value.trim() };
     const materialLabels = { jarn: 'Járn', timbur: 'Timbur', annad: document.getElementById('job-material-other').value.trim() };
     const equipmentLabels = { 'stor-gamur': 'Stór gámur', 'litill-gamur': 'Lítill gámur', krani: 'Krani', pallbill: 'Pallbíll', trailer: 'Trailer', 'annad-equip': document.getElementById('job-equipment-other').value.trim() };
 
@@ -500,7 +602,6 @@
       date: document.getElementById('job-date').value,
       company: document.getElementById('job-company').value.trim(),
       where: document.getElementById('job-where').value.trim(),
-      locationExtra: document.getElementById('job-location-extra').value.trim(),
       phone: document.getElementById('job-phone').value.trim(),
       contact: document.getElementById('job-contact').value.trim(),
       jobType, jobTypeLabel: jobTypeLabels[jobType] || '',
@@ -514,8 +615,8 @@
 
   function validate(data) {
     // Hard required — can't send without these
-    if (!data.date || !data.company || !data.where || !data.driver) {
-      showToast('Fylltu út dagsetningu, fyrirtæki, staðsetningu og bílstjóra');
+    if (!data.date || !data.company || !data.where || !data.driver || !data.phone) {
+      showToast('Fylltu út dagsetningu, fyrirtæki, staðsetningu, síma og bílstjóra');
       return false;
     }
     if (data.jobType === 'annad-type' && !data.jobTypeLabel) { showToast('Lýstu tegund verkefnis'); return false; }
@@ -534,18 +635,25 @@
 
   let _pendingSendData = null;
 
-  function closeConfirmModal() {
+  window.closeConfirmModal = function() {
     document.getElementById('confirm-modal').style.display = 'none';
     _pendingSendData = null;
-  }
+  };
 
-  function sendAnyway() {
-    closeConfirmModal();
-    if (_pendingSendData) doSend(_pendingSendData);
+  window.sendAnyway = function() {
+    const data = _pendingSendData;
+    window.closeConfirmModal();
+    if (data) doSend(data);
+  };
+
+  function todayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
 
   function clearForm() {
-    ['job-date','job-company','job-where','job-location-extra','job-phone','job-contact','job-notes','job-type-other','job-material-other','job-equipment-other'].forEach(id => document.getElementById(id).value = '');
+    ['job-company','job-where','job-phone','job-contact','job-notes','job-type-other','job-material-other','job-equipment-other'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('job-date').value = todayISO();
     ['job-type-group','job-material-group','job-equipment-group','job-driver-group'].forEach(g =>
       document.querySelectorAll(`#${g} .option-btn`).forEach(b => b.classList.remove('selected'))
     );
@@ -558,13 +666,13 @@
   let _editingJobId = null;
   let _editingJobStatus = null;
 
-  function editJob(id) {
+  window.editJob = function(id) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
     const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val || ''; };
     setVal('job-date', job.date); setVal('job-company', job.company);
-    setVal('job-where', job.where); setVal('job-location-extra', job.locationExtra);
+    setVal('job-where', job.where);
     setVal('job-phone', job.phone); setVal('job-contact', job.contact); setVal('job-notes', job.notes);
     const restoreOption = (groupId, value, wrapId, inputId, label) => {
       document.querySelectorAll(`#${groupId} .option-btn`).forEach(b => { if (b.dataset.value === value) b.classList.add('selected'); });
@@ -583,20 +691,19 @@
       document.getElementById('image-preview-img').src = job.image;
       document.getElementById('image-preview-wrap').style.display = 'block';
     } else {
-      clearImage();
+      window.clearImage();
     }
     _editingJobId = id;
     _editingJobStatus = job.status;
-    switchTab('new-job', document.querySelectorAll('.tab-btn')[1]);
+    window.switchTab('new-job', document.querySelectorAll('.tab-btn')[1]);
     showToast('Breyttu og sendu aftur');
-  }
+  };
 
-  function createJob() {
+  window.createJob = function() {
     const data = collectFormData();
     if (!validate(data)) return;
     const missing = getMissingOptional(data);
     if (missing.length > 0) {
-      // Show soft-warning modal
       _pendingSendData = data;
       const list = document.getElementById('confirm-missing-list');
       list.innerHTML = missing.map(m => `<li>${m}</li>`).join('');
@@ -604,37 +711,31 @@
     } else {
       doSend(data);
     }
-  }
+  };
 
-  function doSend(data) {
-    const d = getData();
-    if (_editingJobId) {
-      d.jobs = d.jobs.filter(j => j.id !== _editingJobId);
-      d.jobs.unshift({ id: _editingJobId, ...data, status: _editingJobStatus || 'new', createdAt: new Date().toISOString() });
-      _editingJobId = null; _editingJobStatus = null;
-      showToast('Verkefni uppfært!');
-    } else {
-      d.jobs.unshift({ id: Date.now().toString(), ...data, status: 'new', createdAt: new Date().toISOString() });
-      showToast('Verkefni sent!');
-    }
-    saveData(d);
-    clearForm();
-    switchTab('jobs', document.querySelector('.tab-btn'));
-  }
-
-  function saveJob() {
-    const data = collectFormData();
-    const d = getData();
+  async function doSend(data) {
+    const isEdit = !!_editingJobId;
     const id = _editingJobId || Date.now().toString();
-    if (_editingJobId) d.jobs = d.jobs.filter(j => j.id !== _editingJobId);
-    d.jobs.unshift({ id, ...data, status: 'draft', createdAt: new Date().toISOString() });
+    const status = isEdit ? (_editingJobStatus || 'new') : 'new';
+    const job = { id, ...data, status, createdAt: new Date().toISOString() };
     _editingJobId = null; _editingJobStatus = null;
-    saveData(d);
+    await fsSetJob(job);
+    showToast(isEdit ? 'Verkefni uppfært!' : 'Verkefni sent!');
+    clearForm();
+    window.switchTab('jobs', document.querySelector('.tab-btn'));
+  }
+
+  window.saveJob = async function() {
+    const data = collectFormData();
+    const id = _editingJobId || Date.now().toString();
+    const job = { id, ...data, status: 'draft', createdAt: new Date().toISOString() };
+    _editingJobId = null; _editingJobStatus = null;
+    await fsSetJob(job);
     clearForm();
     showToast('Verkefni vistað');
     const draftsBtn = document.querySelectorAll('.tab-btn')[2];
-    switchTab('drafts', draftsBtn);
-  }
+    window.switchTab('drafts', draftsBtn);
+  };
 
   // ── JOBS ───────────────────────────────────────────────────────────────────
 
@@ -642,6 +743,7 @@
     const d = getData();
     const active = d.jobs.filter(j => ['new','accepted','onway','delayed'].includes(j.status));
     const done = d.jobs.filter(j => j.status === 'done');
+    // archived jobs are excluded from both lists (they live in Geymsla)
     document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engin virk verkefni</div>';
     document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engin lokið verkefni</div>';
   }
@@ -666,7 +768,6 @@
         <hr class="job-divider"/>
         <div class="job-detail"><strong>Fyrirtæki:</strong> ${job.company || '—'}</div>
         <div class="job-detail"><strong>Staðsetning:</strong> ${job.where || '—'}</div>
-        ${job.locationExtra ? `<div class="job-detail"><strong>Annað:</strong> ${job.locationExtra}</div>` : ''}
         ${job.phone ? `<div class="job-detail"><strong>Sími:</strong> ${job.phone}</div>` : ''}
         ${job.contact ? `<div class="job-detail"><strong>Tengill:</strong> ${job.contact}</div>` : ''}
         <hr class="job-divider"/>
@@ -682,11 +783,13 @@
         </div>
         ${job.notes ? `<div class="job-detail"><strong>Athugasemd:</strong> ${job.notes}</div>` : ''}
         ${job.containerNumberTekinn ? `<div class="job-detail"><strong>Gám tekinn:</strong> <strong style="color:var(--green)">${job.containerNumberTekinn}</strong></div><div class="job-detail"><strong>Gám settur:</strong> <strong style="color:var(--green)">${job.containerNumberSettur || '—'}</strong></div>` : job.containerNumber ? `<div class="job-detail"><strong>Gámanúmer:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''}
+        ${job.completionNote ? `<div class="delay-info-dir" style="border-left-color:var(--rust);background:#fff8f6;"><strong>⚠️ Athugasemd bílstjóra</strong>${job.completionNote}</div>` : ''}
         ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
+        ${job.status === 'done' ? excelStrip(job) : ''}
         <div class="job-actions">
           <button class="btn btn-outline btn-sm" onclick="editJob('${job.id}')">Breyta</button>
-          ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button>` : ''}
+          ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button><button class="btn btn-outline btn-sm" onclick="archiveJob('${job.id}')" style="border-color:var(--muted);color:var(--muted);">🗄 Færa í geymslu</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
         </div>
       </div>`;
@@ -711,13 +814,13 @@
       </div>`;
   }
 
-  function editDraft(id) {
+  window.editDraft = async function(id) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
-    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-    setVal('job-date', job.date); setVal('job-company', job.company); setVal('job-party', job.party);
-    setVal('job-where', job.where); setVal('job-location-extra', job.locationExtra);
+    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val || ''; };
+    setVal('job-date', job.date); setVal('job-company', job.company);
+    setVal('job-where', job.where);
     setVal('job-phone', job.phone); setVal('job-contact', job.contact); setVal('job-notes', job.notes);
 
     const restoreOption = (groupId, value, wrapId, inputId, label) => {
@@ -731,30 +834,27 @@
     restoreOption('job-material-group', job.material, 'job-material-other-wrap', 'job-material-other', job.materialLabel);
     restoreOption('job-equipment-group', job.equipment, 'job-equipment-other-wrap', 'job-equipment-other', job.equipmentLabel);
 
-    d.jobs = d.jobs.filter(j => j.id !== id);
-    saveData(d);
+    await fsDeleteJob(id);
     renderDriverButtons();
-    switchTab('new-job', document.querySelectorAll('.tab-btn')[1]);
+    window.switchTab('new-job', document.querySelectorAll('.tab-btn')[1]);
     showToast('Verkefni opnað til breytinga');
-  }
+  };
 
-  function reopenJob(id) {
+  window.reopenJob = async function(id) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
-    if (job) { job.status = 'new'; delete job.containerNumber; }
-    saveData(d);
-    renderJobsList();
+    if (!job) return;
+    const updated = { ...job, status: 'new' };
+    delete updated.containerNumber; delete updated.containerNumberTekinn; delete updated.containerNumberSettur;
+    await fsSetJob(updated);
     showToast('Verkefni opnað aftur');
-  }
+  };
 
-  function deleteJob(id) {
+  window.deleteJob = async function(id) {
     if (!confirm('Eyða þessu verkefni?')) return;
-    const d = getData();
-    d.jobs = d.jobs.filter(j => j.id !== id);
-    saveData(d);
-    renderJobsList(); renderDrafts();
+    await fsDeleteJob(id);
     showToast('Verkefni eytt');
-  }
+  };
 
   // ── REQUESTS ───────────────────────────────────────────────────────────────
 
@@ -765,14 +865,14 @@
     return base + '?invite=' + INVITE_TOKEN;
   }
 
-  function copyInviteLink() {
+  window.copyInviteLink = function() {
     const link = getInviteLink();
     navigator.clipboard.writeText(link).then(() => showToast('Hlekkur afritaður!')).catch(() => {
       document.getElementById('invite-link-display').select();
       document.execCommand('copy');
       showToast('Hlekkur afritaður!');
     });
-  }
+  };
 
   function renderRequests() {
     document.getElementById('invite-link-display').value = getInviteLink();
@@ -799,57 +899,170 @@
       </div>`).join('') : '<div class="empty-state" style="padding:1rem 0;">Engir samþykktir bílstjórar</div>';
   }
 
-  function approveDriver(id) {
+  window.approveDriver = async function(id) {
     const d = getData();
     const req = d.driverRequests.find(r => r.id === id);
     if (!req) return;
-    d.driverRequests = d.driverRequests.filter(r => r.id !== id);
-    d.approvedDrivers.push({ id: req.id, name: req.name, password: req.password });
-    saveData(d);
-    renderRequests();
-    updateRequestsBadge();
+    await fsDeleteRequest(id);
+    await fsSetDriver({ id: req.id, name: req.name, password: req.password });
     showToast(req.name + ' samþykkt!');
-  }
+  };
 
-  function rejectDriver(id) {
-    const d = getData();
-    const req = d.driverRequests.find(r => r.id === id);
-    d.driverRequests = d.driverRequests.filter(r => r.id !== id);
-    saveData(d);
-    renderRequests();
-    updateRequestsBadge();
+  window.rejectDriver = async function(id) {
+    await fsDeleteRequest(id);
     showToast('Beiðni hafnað');
-  }
+  };
 
-  function removeDriver(id) {
+  window.removeDriver = async function(id) {
     if (!confirm('Fjarlægja þennan bílstjóra?')) return;
-    const d = getData();
-    d.approvedDrivers = d.approvedDrivers.filter(dr => dr.id !== id);
-    saveData(d);
-    renderRequests();
+    await fsDeleteDriver(id);
     showToast('Bílstjóri fjarlægður');
+  };
+
+  // ── EXCEL COPY STRIP ───────────────────────────────────────────────────────
+
+  function excelStrip(job) {
+    const dateDisplay = job.date ? job.date.split('-').reverse().join('.') : '—';
+    const company = job.company || '—';
+    return `
+      <div class="excel-strip">
+        <div class="excel-row">
+          <span class="excel-cell">${company}</span>
+          <span class="excel-cell">${dateDisplay}</span>
+          <button class="excel-copy-btn" data-company="${company.replace(/"/g,'&quot;')}" data-date="${dateDisplay}" onclick="copyExcelRow(this)">Afrita</button>
+        </div>
+      </div>`;
   }
 
-  // Auto-refresh when driver updates a job
-  window.addEventListener('storage', function(e) {
-    if (e.key === 'fura_data') { renderJobsList(); updateRequestsBadge(); }
-  });
-  setInterval(function() { renderJobsList(); updateRequestsBadge(); }, 10000);
+  window.copyExcelRow = function(btn) {
+    const text = btn.dataset.company + '\t' + btn.dataset.date;
+    const doConfirm = () => {
+      btn.textContent = '✓ Afritað';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Afrita'; btn.classList.remove('copied'); }, 2000);
+    };
+    navigator.clipboard.writeText(text).then(doConfirm).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      doConfirm();
+    });
+  };
 
-  // Auto-refresh when drivers update jobs
-  window.addEventListener('storage', function(e) {
-    if (e.key === 'fura_data') {
-      const activeTab = document.querySelector('.tab-panel.active');
-      if (activeTab && activeTab.id === 'tab-jobs') renderJobsList();
-      if (activeTab && activeTab.id === 'tab-requests') renderRequests();
-      updateRequestsBadge();
+  // ── GEYMSLA ────────────────────────────────────────────────────────────────
+
+  window.archiveJob = async function(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    await fsSetJob({ ...job, status: 'archived', archivedAt: new Date().toISOString() });
+    showToast('Verkefni fært í geymslu');
+  };
+
+  window.clearGeymslaFilters = function() {
+    document.getElementById('geymsla-search').value = '';
+    document.getElementById('geymsla-from').value = '';
+    document.getElementById('geymsla-to').value = '';
+    renderGeymsla();
+  };
+
+  function renderGeymsla() {
+    const d = getData();
+    const q = (document.getElementById('geymsla-search').value || '').toLowerCase().trim();
+    const fromVal = document.getElementById('geymsla-from').value; // 'YYYY-MM-DD' or ''
+    const toVal   = document.getElementById('geymsla-to').value;
+    const archived = d.jobs.filter(j => j.status === 'archived');
+
+    const matches = archived.filter(j => {
+      // Text filter — company name and container number only
+      if (q) {
+        const haystack = [
+          j.company,
+          j.containerNumber,
+          j.containerNumberTekinn,
+          j.containerNumberSettur
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      // Date range filter — uses the job's own date field
+      if (fromVal && j.date && j.date < fromVal) return false;
+      if (toVal   && j.date && j.date > toVal)   return false;
+      return true;
+    });
+
+    // Sort newest job date first; fall back to archived timestamp
+    matches.sort((a, b) => {
+      const dateA = a.date || a.archivedAt || a.createdAt || '';
+      const dateB = b.date || b.archivedAt || b.createdAt || '';
+      return dateB.localeCompare(dateA);
+    });
+
+    const countEl = document.getElementById('geymsla-count');
+    const hasFilter = q || fromVal || toVal;
+    if (hasFilter) {
+      countEl.textContent = matches.length === 0 ? 'Engar niðurstöður' : `${matches.length} ${matches.length === 1 ? 'skrá' : 'skrár'} fundust`;
+    } else {
+      countEl.textContent = archived.length === 0 ? '' : `${archived.length} ${archived.length === 1 ? 'skrá' : 'skrár'} í geymslu`;
     }
-  });
-  setInterval(function() {
-    const activeTab = document.querySelector('.tab-panel.active');
-    if (activeTab && activeTab.id === 'tab-jobs') renderJobsList();
-    updateRequestsBadge();
-  }, 10000);
+
+    const listEl = document.getElementById('geymsla-list');
+    if (matches.length === 0) {
+      listEl.innerHTML = hasFilter
+        ? `<div class="empty-state"><div class="icon">🔍</div>Engar skrár fundust</div>`
+        : `<div class="empty-state"><div class="icon">🗄</div>Geymslan er tóm<br><small style="font-size:0.8rem;margin-top:0.5rem;display:block;">Þegar verkefni er lokið getur þú fært það í geymslu</small></div>`;
+      return;
+    }
+
+    listEl.innerHTML = matches.map(job => {
+      const archivedDate = job.archivedAt ? new Date(job.archivedAt).toLocaleDateString('is-IS', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+      const jobDateFmt = job.date || '—';
+      const containerInfo = job.containerNumberTekinn
+        ? `<div class="archive-detail"><strong>Gám tekinn:</strong> ${job.containerNumberTekinn}</div><div class="archive-detail"><strong>Gám settur:</strong> ${job.containerNumberSettur || '—'}</div>`
+        : job.containerNumber ? `<div class="archive-detail"><strong>Gámanúmer:</strong> ${job.containerNumber}</div>` : '';
+      return `
+        <div class="archive-card">
+          <div class="archive-card-header">
+            <div>
+              <div class="archive-card-title">${job.jobTypeLabel || '—'}</div>
+              <div class="archive-card-date">Verkefni: ${jobDateFmt}${archivedDate ? ` · Geymsla: ${archivedDate}` : ''}</div>
+            </div>
+            <span class="status-badge badge-archived">Geymsla</span>
+          </div>
+          <div class="archive-detail"><strong>Fyrirtæki:</strong> ${job.company || '—'}</div>
+          <div class="archive-detail"><strong>Staðsetning:</strong> ${job.where || '—'}</div>
+          ${job.contact ? `<div class="archive-detail"><strong>Tengill:</strong> ${job.contact}</div>` : ''}
+          ${job.phone ? `<div class="archive-detail"><strong>Sími:</strong> ${job.phone}</div>` : ''}
+          <div class="archive-detail"><strong>Bílstjóri:</strong> ${job.driverLabel || '—'}</div>
+          ${job.materialLabel ? `<div class="archive-detail"><strong>Efni:</strong> ${job.materialLabel}</div>` : ''}
+          ${job.equipmentLabel ? `<div class="archive-detail"><strong>Tækjaþörf:</strong> ${job.equipmentLabel}</div>` : ''}
+          ${containerInfo}
+          ${job.notes ? `<div class="archive-detail"><strong>Athugasemd:</strong> ${job.notes}</div>` : ''}
+          ${job.image ? `<img src="${job.image}" style="width:100%;border-radius:8px;margin-top:0.6rem;max-height:180px;object-fit:cover;" alt="Mynd" />` : ''}
+          <div class="archive-actions">
+            <button class="btn btn-outline btn-sm" onclick="unarchiveJob('${job.id}')">↩ Færa til baka í Lokið</button>
+            <button class="btn btn-red btn-sm" onclick="deleteArchivedJob('${job.id}')">Eyða</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+  window.renderGeymsla = renderGeymsla;
+
+  window.unarchiveJob = async function(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    const updated = { ...job, status: 'done' };
+    delete updated.archivedAt;
+    await fsSetJob(updated);
+    showToast('Verkefni fært til baka í Lokið');
+  };
+
+  window.deleteArchivedJob = async function(id) {
+    if (!confirm('Eyða þessari skrá úr geymslu? Þetta er óafturkræft.')) return;
+    await fsDeleteJob(id);
+    showToast('Skrá eytt');
+  };
 
   function showToast(msg) {
     const t = document.getElementById('toast');

@@ -314,9 +314,43 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
-  const INVITE_TOKEN = 'fura_drivers';
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+  import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 
+  const firebaseConfig = {
+    apiKey: "AIzaSyAdDfbGWGnBHqCxfBQvay36JDXLTPA12SY",
+    authDomain: "fura-app-d8efe.firebaseapp.com",
+    projectId: "fura-app-d8efe",
+    storageBucket: "fura-app-d8efe.firebasestorage.app",
+    messagingSenderId: "532668712662",
+    appId: "1:532668712662:web:4b64944b27e491174c2b77"
+  };
+
+  const fireApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fireApp);
+
+  // ── LOCAL CACHE ────────────────────────────────────────────────────────────
+  let appData = { jobs: [], driverRequests: [], approvedDrivers: [] };
+  function getData() { return appData; }
+  function cleanObj(obj) { return JSON.parse(JSON.stringify(obj, (k,v) => v===undefined ? null : v)); }
+  async function fsSetJob(job) { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)); }
+  async function fsSetRequest(req) { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)); }
+
+  // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
+  onSnapshot(collection(db,'jobs'), snap => {
+    appData.jobs = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (currentDriverName) renderAll();
+  });
+  onSnapshot(collection(db,'driverRequests'), snap => {
+    appData.driverRequests = snap.docs.map(d => ({id:d.id,...d.data()}));
+  });
+  onSnapshot(collection(db,'approvedDrivers'), snap => {
+    appData.approvedDrivers = snap.docs.map(d => ({id:d.id,...d.data()}));
+  });
+
+  // ── INVITE GATE ────────────────────────────────────────────────────────────
+  const INVITE_TOKEN = 'fura_drivers';
   (function() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('invite') === INVITE_TOKEN) localStorage.setItem('fura_invited', 'yes');
@@ -334,17 +368,15 @@
   let _delayingJobId = null;
   let _delayImageData = null;
 
-  function getData() { return JSON.parse(localStorage.getItem('fura_data') || 'null') || { jobs: [], driverRequests: [], approvedDrivers: [] }; }
-  function saveData(d) { localStorage.setItem('fura_data', JSON.stringify(d)); }
   function nameMatch(a, b) { return a && b && a.trim().toLowerCase() === b.trim().toLowerCase(); }
 
-  function switchAuth(tab, btn) {
+  window.switchAuth = function(tab, btn) {
     document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('auth-' + tab).classList.add('active');
     hideAllMsgs();
-  }
+  };
 
   function hideAllMsgs() {
     ['login-error','login-pending','reg-error','reg-success'].forEach(id => {
@@ -358,7 +390,7 @@
     el.style.display = 'block';
   }
 
-  function doRegister() {
+  window.doRegister = async function() {
     hideAllMsgs();
     const name = document.getElementById('reg-name').value.trim();
     const pw = document.getElementById('reg-password').value;
@@ -367,53 +399,52 @@
     if (pw.length < 4) { showMsg('reg-error', 'Lykilorð verður að vera að minnsta kosti 4 stafir'); return; }
     if (pw !== pw2) { showMsg('reg-error', 'Lykilorð stemma ekki'); return; }
     const d = getData();
-    const exists = [...(d.driverRequests || []), ...(d.approvedDrivers || [])].find(r => nameMatch(r.name, name));
+    const exists = [...(d.driverRequests||[]),...(d.approvedDrivers||[])].find(r => nameMatch(r.name, name));
     if (exists) { showMsg('reg-error', 'Þetta nafn er þegar skráð'); return; }
-    d.driverRequests = d.driverRequests || [];
-    d.driverRequests.push({ id: Date.now().toString(), name, password: pw, status: 'pending' });
-    saveData(d);
+    const req = { id: Date.now().toString(), name, password: pw, status: 'pending' };
+    await fsSetRequest(req);
     document.getElementById('reg-name').value = '';
     document.getElementById('reg-password').value = '';
     document.getElementById('reg-password2').value = '';
     showMsg('reg-success', 'Beiðni send! Stjórnandi þarf að samþykkja aðgang þinn.');
-  }
+  };
 
-  function doLogin() {
+  window.doLogin = function() {
     hideAllMsgs();
     const name = document.getElementById('login-name').value.trim();
     const pw = document.getElementById('login-password').value;
     if (!name || !pw) { showMsg('login-error', 'Fylltu út nafn og lykilorð'); return; }
     const d = getData();
-    const pending = (d.driverRequests || []).find(r => nameMatch(r.name, name) && r.password === pw);
+    const pending = (d.driverRequests||[]).find(r => nameMatch(r.name, name) && r.password === pw);
     if (pending) { showMsg('login-pending', 'Aðgangur þinn bíður samþykkis frá stjórnanda'); return; }
-    const approved = (d.approvedDrivers || []).find(r => nameMatch(r.name, name) && r.password === pw);
+    const approved = (d.approvedDrivers||[]).find(r => nameMatch(r.name, name) && r.password === pw);
     if (!approved) { showMsg('login-error', 'Rangt nafn eða lykilorð'); return; }
     currentDriverName = approved.name;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('header-name').textContent = approved.name;
     renderAll();
-  }
+  };
 
-  function doLogout() {
+  window.doLogout = function() {
     currentDriverName = null;
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     document.getElementById('login-name').value = '';
     document.getElementById('login-password').value = '';
     hideAllMsgs();
-  }
+  };
 
-  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key==='Enter') window.doLogin(); });
 
   /* ── TAB SWITCHING ── */
-  function switchTab(tab) {
+  window.switchTab = function(tab) {
     currentTab = tab;
     document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     document.getElementById('panel-' + tab).classList.add('active');
-  }
+  };
 
   function getNewJobs(d) {
     return d.jobs.filter(j =>
@@ -518,8 +549,10 @@
             <label style="margin-top:0rem;display:block;">Gámanúmer — Settur</label>
             <div class="container-row" style="margin-top:0.4rem;">
               <input type="text" id="container-settur-${job.id}" placeholder="Númer á gámi sem settur..." />
-              <button class="btn btn-green" onclick="markDone('${job.id}', true)">Sótt ✓</button>
             </div>
+            <label style="margin-top:1rem;display:block;">Athugasemd <span style="font-weight:400;text-transform:none;color:var(--muted)">(valkvætt)</span></label>
+            <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;"></textarea>
+            <button class="btn btn-green" style="width:100%;margin-top:0.25rem;" onclick="markDone('${job.id}', true)">Sótt ✓</button>
           </div>
           <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
       } else {
@@ -528,8 +561,10 @@
             <label>Gámanúmer</label>
             <div class="container-row">
               <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." />
-              <button class="btn btn-green" onclick="markDone('${job.id}')">Sótt ✓</button>
             </div>
+            <label style="margin-top:1rem;display:block;">Athugasemd <span style="font-weight:400;text-transform:none;color:var(--muted)">(valkvætt)</span></label>
+            <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;"></textarea>
+            <button class="btn btn-green" style="width:100%;margin-top:0.25rem;" onclick="markDone('${job.id}')">Sótt ✓</button>
           </div>
           <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
       }
@@ -584,138 +619,121 @@
       </div>`;
   }
 
-  function claimJob(id) {
+  window.claimJob = async function(id) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
-    job.driver = currentDriverName.toLowerCase().replace(/\s+/g, '_');
-    job.driverLabel = currentDriverName;
-    job.status = 'accepted';
-    saveData(d); renderAll();
-    switchTab('vinnsla');
+    await fsSetJob({ ...job, driver: currentDriverName.toLowerCase().replace(/\s+/g,'_'), driverLabel: currentDriverName, status: 'accepted' });
+    window.switchTab('vinnsla');
     showToast('✓ Þú hefur tekið við verkefninu');
-  }
+  };
 
-  function markAccepted(id) {
-    const d = getData();
-    const job = d.jobs.find(j => j.id === id);
-    if (job) job.status = 'accepted';
-    saveData(d); renderAll();
-    switchTab('vinnsla');
-    showToast('✓ Verkefni samþykkt');
-  }
-
-  function markOnWay(id) {
-    const d = getData();
-    const job = d.jobs.find(j => j.id === id);
-    if (job) job.status = 'onway';
-    saveData(d); renderAll();
-    // Switch to vinnsla tab
-    switchTab('vinnsla');
-    showToast('Merkt: Á leiðinni 🚛');
-  }
-
-  function markDone(id, isSkipta) {
+  window.markAccepted = async function(id) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
-    if (isSkipta) {
-      const tekinn = (document.getElementById('container-tekinn-' + id) || {value:''}).value.trim();
-      const settur = (document.getElementById('container-settur-' + id) || {value:''}).value.trim();
-      if (!tekinn || !settur) { showToast('Sláðu inn báðar gámanúmer'); return; }
-      job.containerNumberTekinn = tekinn;
-      job.containerNumberSettur = settur;
-    } else {
-      const num = (document.getElementById('container-' + id) || {value:''}).value.trim();
-      if (!num) { showToast('Sláðu inn gámanúmer'); return; }
-      job.containerNumber = num;
-    }
-    job.status = 'done';
-    saveData(d); renderAll();
-    switchTab('klarud');
-    showToast('Lokið! Gámanúmer skráð ✓');
-  }
+    await fsSetJob({ ...job, status: 'accepted' });
+    window.switchTab('vinnsla');
+    showToast('✓ Verkefni samþykkt');
+  };
 
-  function showDelayForm(id) {
+  window.markOnWay = async function(id) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    await fsSetJob({ ...job, status: 'onway' });
+    window.switchTab('vinnsla');
+    showToast('Merkt: Á leiðinni 🚛');
+  };
+
+  window.markDone = async function(id, isSkipta) {
+    const d = getData();
+    const job = d.jobs.find(j => j.id === id);
+    if (!job) return;
+    const updated = { ...job, status: 'done' };
+    const completionNote = (document.getElementById('completion-note-'+id)||{value:''}).value.trim();
+    if (isSkipta) {
+      const tekinn = (document.getElementById('container-tekinn-'+id)||{value:''}).value.trim();
+      const settur = (document.getElementById('container-settur-'+id)||{value:''}).value.trim();
+      if (!tekinn || !settur) { showToast('Sláðu inn báðar gámanúmer'); return; }
+      updated.containerNumberTekinn = tekinn;
+      updated.containerNumberSettur = settur;
+    } else {
+      const num = (document.getElementById('container-'+id)||{value:''}).value.trim();
+      if (!num) { showToast('Sláðu inn gámanúmer'); return; }
+      updated.containerNumber = num;
+    }
+    if (completionNote) updated.completionNote = completionNote;
+    await fsSetJob(updated);
+    window.switchTab('klarud');
+    showToast('Lokið! Gámanúmer skráð ✓');
+  };
+
+  window.showDelayForm = function(id) {
     _delayingJobId = id;
     _delayImageData = null;
     renderAll();
-    setTimeout(() => { const el = document.getElementById('delay-note-' + id); if (el) el.focus(); }, 60);
-  }
+    setTimeout(() => { const el = document.getElementById('delay-note-'+id); if (el) el.focus(); }, 60);
+  };
 
-  function cancelDelay() {
+  window.cancelDelay = function() {
     _delayingJobId = null;
     _delayImageData = null;
     renderAll();
-  }
+  };
 
-  function handleDelayImage(id, input) {
+  window.handleDelayImage = function(id, input) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
       const img = new Image();
       img.onload = function() {
-        const MAX = 900;
+        const MAX = 800;
         const scale = img.width > MAX ? MAX / img.width : 1;
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        _delayImageData = canvas.toDataURL('image/jpeg', 0.8);
-        const preview = document.getElementById('delay-img-preview-' + id);
+        _delayImageData = canvas.toDataURL('image/jpeg', 0.75);
+        const preview = document.getElementById('delay-img-preview-'+id);
         if (preview) { preview.src = _delayImageData; preview.style.display = 'block'; }
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
-  }
+  };
 
-  function submitDelay(id) {
-    const noteEl = document.getElementById('delay-note-' + id);
+  window.submitDelay = async function(id) {
+    const noteEl = document.getElementById('delay-note-'+id);
     const note = noteEl ? noteEl.value.trim() : '';
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
-    job.status = 'delayed';
-    job.delayNote = note || null;
-    job.delayImage = _delayImageData || null;
     _delayingJobId = null;
     _delayImageData = null;
-    saveData(d); renderAll();
+    await fsSetJob({ ...job, status: 'delayed', delayNote: note || null, delayImage: _delayImageData || null });
     showToast('Verkefni frestað ⏸');
-  }
+  };
 
-  function resumeJob(id) {
+  window.resumeJob = async function(id) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
-    job.status = 'accepted';
-    job.delayNote = null;
-    job.delayImage = null;
-    saveData(d); renderAll();
+    const updated = { ...job, status: 'accepted' };
+    delete updated.delayNote; delete updated.delayImage;
+    await fsSetJob(updated);
     showToast('Verkefni haldið áfram ▶');
-  }
+  };
 
-  function copyAddress(address) {
+  window.copyAddress = function(address) {
     navigator.clipboard.writeText(address).then(() => showToast('Heimilisfang afritað!')).catch(() => {
       const el = document.createElement('textarea');
-      el.value = address;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
+      el.value = address; document.body.appendChild(el); el.select();
+      document.execCommand('copy'); document.body.removeChild(el);
       showToast('Heimilisfang afritað!');
     });
-  }
-
-  // Auto-refresh — when director sends a job, badge lights up
-  window.addEventListener('storage', function(e) {
-    if (e.key === 'fura_data' && currentDriverName) renderAll();
-  });
-  setInterval(function() {
-    if (currentDriverName) renderAll();
-  }, 10000);
+  };
 
   function showToast(msg) {
     const t = document.getElementById('toast');
