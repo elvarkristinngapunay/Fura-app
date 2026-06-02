@@ -495,18 +495,27 @@
     document.getElementById('image-preview-wrap').style.display = 'none';
   }
 
-  window.doLogin = function() {
-    const pw = document.getElementById('login-password').value;
-    if (pw !== DIRECTOR_PASSWORD) { document.getElementById('login-error').style.display = 'block'; return; }
+  function completeLogin() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('job-date').value = todayISO();
     _loggedIn = true;
     renderJobsList();
     updateRequestsBadge();
+  }
+  window.doLogin = function() {
+    const pw = document.getElementById('login-password').value;
+    if (pw !== DIRECTOR_PASSWORD) { document.getElementById('login-error').style.display = 'block'; return; }
+    localStorage.setItem('fura_director_session', 'yes');
+    completeLogin();
   };
+  // Auto-login if previously logged in
+  if (localStorage.getItem('fura_director_session') === 'yes') {
+    completeLogin();
+  }
   window.doLogout = function() {
     _loggedIn = false;
+    localStorage.removeItem('fura_director_session');
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     document.getElementById('login-password').value = '';

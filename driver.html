@@ -347,7 +347,24 @@
   });
   onSnapshot(collection(db,'approvedDrivers'), snap => {
     appData.approvedDrivers = snap.docs.map(d => ({id:d.id,...d.data()}));
+    // Auto-login if we have a saved session and the driver is still approved
+    if (!currentDriverName) {
+      const savedName = localStorage.getItem('fura_driver_session');
+      if (savedName) {
+        const stillApproved = appData.approvedDrivers.find(r => r.name === savedName);
+        if (stillApproved) autoLoginDriver(stillApproved.name);
+        else localStorage.removeItem('fura_driver_session');
+      }
+    }
   });
+
+  function autoLoginDriver(name) {
+    currentDriverName = name;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('header-name').textContent = name;
+    renderAll();
+  }
 
   // ── INVITE GATE ────────────────────────────────────────────────────────────
   const INVITE_TOKEN = 'fura_drivers';
@@ -419,6 +436,7 @@
     if (pending) { showMsg('login-pending', 'Aðgangur þinn bíður samþykkis frá stjórnanda'); return; }
     const approved = (d.approvedDrivers||[]).find(r => nameMatch(r.name, name) && r.password === pw);
     if (!approved) { showMsg('login-error', 'Rangt nafn eða lykilorð'); return; }
+    localStorage.setItem('fura_driver_session', approved.name);
     currentDriverName = approved.name;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -427,6 +445,7 @@
   };
 
   window.doLogout = function() {
+    localStorage.removeItem('fura_driver_session');
     currentDriverName = null;
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
