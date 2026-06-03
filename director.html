@@ -750,8 +750,9 @@
 
   function renderJobsList() {
     const d = getData();
-    const active = d.jobs.filter(j => ['new','accepted','onway','delayed'].includes(j.status));
-    const done = d.jobs.filter(j => j.status === 'done');
+    const byNewest = (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '');
+    const active = d.jobs.filter(j => ['new','accepted','onway','delayed'].includes(j.status)).sort(byNewest);
+    const done = d.jobs.filter(j => j.status === 'done').sort(byNewest);
     // archived jobs are excluded from both lists (they live in Geymsla)
     document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engin virk verkefni</div>';
     document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engin lokið verkefni</div>';
@@ -759,7 +760,7 @@
 
   function renderDrafts() {
     const d = getData();
-    const drafts = d.jobs.filter(j => j.status === 'draft');
+    const drafts = d.jobs.filter(j => j.status === 'draft').sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     document.getElementById('drafts-list').innerHTML = drafts.length ? drafts.map(draftCard).join('') : '<div class="empty-state"><div class="icon">📝</div>Engin vistuð verkefni</div>';
   }
 
@@ -1000,10 +1001,10 @@
       return true;
     });
 
-    // Sort newest job date first; fall back to archived timestamp
+    // Sort newest first by creation time
     matches.sort((a, b) => {
-      const dateA = a.date || a.archivedAt || a.createdAt || '';
-      const dateB = b.date || b.archivedAt || b.createdAt || '';
+      const dateA = a.createdAt || a.archivedAt || a.date || '';
+      const dateB = b.createdAt || b.archivedAt || b.date || '';
       return dateB.localeCompare(dateA);
     });
 

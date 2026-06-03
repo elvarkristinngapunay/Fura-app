@@ -487,21 +487,22 @@
   function renderAll() {
     if (!currentDriverName) return;
     const d = getData();
+    const byNewest = (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '');
 
     // Útköllun — new jobs not yet accepted
-    const newJobs = getNewJobs(d);
+    const newJobs = getNewJobs(d).sort(byNewest);
     renderList('utkolun-list', newJobs, 'Útköllun', '🔔', 'Engar nýjar útköllur');
 
     // Í vinnslu — accepted, onway, or delayed
     const onwayJobs = d.jobs.filter(j =>
       nameMatch(j.driverLabel, currentDriverName) && (j.status === 'accepted' || j.status === 'onway' || j.status === 'delayed')
-    );
+    ).sort(byNewest);
     renderList('vinnsla-list', onwayJobs, 'Í vinnslu', '🚛', 'Ekkert í vinnslu');
 
     // Kláruð — done
     const doneJobs = d.jobs.filter(j =>
       nameMatch(j.driverLabel, currentDriverName) && j.status === 'done'
-    );
+    ).sort(byNewest);
     renderList('klarud-list', doneJobs, 'Kláruð verkefni', '✅', 'Engin kláruð verkefni enn');
 
     // Badge stays until every new job has been acted on
