@@ -97,7 +97,12 @@
 
     #app { display: none; }
     header { background: var(--dark-surface); color: #fff; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-    .header-logo { font-size: 1.2rem; font-weight: 900; color: var(--rust); letter-spacing: -0.02em; }
+    .header-logo { font-size: 1.2rem; font-weight: 900; color: var(--rust); letter-spacing: -0.02em; flex-shrink: 0; }
+    .header-quote { flex: 1; text-align: center; padding: 0 1.5rem; overflow: hidden; min-width: 0; cursor: pointer; user-select: none; }
+    .header-quote .quote-text { display: inline; font-style: italic; font-size: 0.85rem; color: rgba(255,255,255,0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-quote .quote-source { display: inline; font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-left: 0.5rem; font-style: normal; }
+    .header-quote:hover .quote-text { color: rgba(255,255,255,0.9); }
+    @media (max-width: 700px) { .header-quote { display: none; } }
     .header-right { display: flex; align-items: center; gap: 1rem; }
     .header-role { font-size: 0.75rem; background: rgba(196,98,26,0.25); color: var(--rust); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; }
     .logout-btn { font-size: 0.75rem; color: rgba(255,255,255,0.4); background: none; border: none; cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 4px; transition: color 0.2s; }
@@ -263,6 +268,10 @@
 <div id="app">
   <header>
     <div class="header-logo">Fura</div>
+    <div class="header-quote" id="header-quote">
+      <span class="quote-text" id="quote-text"></span>
+      <span class="quote-source" id="quote-source"></span>
+    </div>
     <div class="header-right">
       <span class="header-role">Stjórnandi</span>
       <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Skipta um þema" aria-label="Skipta um þema">🌙</button>
@@ -591,6 +600,63 @@
   };
   // Apply saved theme on load (default: light)
   applyTheme(localStorage.getItem('fura_theme') === 'dark' ? 'dark' : 'light');
+
+  // ── MOVIE QUOTE IN HEADER ──────────────────────────────────────────────────
+  const movieQuotes = [
+    { t: '"I\'ll be back."', s: '— Terminator' },
+    { t: '"May the Force be with you."', s: '— Star Wars' },
+    { t: '"Here\'s looking at you, kid."', s: '— Casablanca' },
+    { t: '"Houston, we have a problem."', s: '— Apollo 13' },
+    { t: '"Show me the money!"', s: '— Jerry Maguire' },
+    { t: '"Why so serious?"', s: '— The Dark Knight' },
+    { t: '"To infinity and beyond!"', s: '— Toy Story' },
+    { t: '"Hasta la vista, baby."', s: '— Terminator 2' },
+    { t: '"Just keep swimming."', s: '— Finding Nemo' },
+    { t: '"You can\'t handle the truth!"', s: '— A Few Good Men' },
+    { t: '"I am Iron Man."', s: '— Iron Man' },
+    { t: '"There\'s no place like home."', s: '— The Wizard of Oz' },
+    { t: '"Life is like a box of chocolates."', s: '— Forrest Gump' },
+    { t: '"Are you not entertained?"', s: '— Gladiator' },
+    { t: '"Yippee-ki-yay."', s: '— Die Hard' },
+    { t: '"I\'m the king of the world!"', s: '— Titanic' },
+    { t: '"Bond. James Bond."', s: '— James Bond' },
+    { t: '"Yo, Adrian!"', s: '— Rocky' },
+    { t: '"Wax on, wax off."', s: '— The Karate Kid' },
+    { t: '"Run, Forrest, run!"', s: '— Forrest Gump' },
+    { t: '"Nobody puts Baby in a corner."', s: '— Dirty Dancing' },
+    { t: '"E.T. phone home."', s: '— E.T.' },
+    { t: '"Frankly, my dear, I don\'t give a damn."', s: '— Gone with the Wind' },
+    { t: '"Keep your friends close, but your enemies closer."', s: '— The Godfather II' },
+    { t: '"Say hello to my little friend!"', s: '— Scarface' },
+    { t: '"Roads? Where we\'re going, we don\'t need roads."', s: '— Back to the Future' },
+    { t: '"I see dead people."', s: '— The Sixth Sense' },
+    { t: '"My precious."', s: '— The Lord of the Rings' },
+    { t: '"You shall not pass!"', s: '— The Lord of the Rings' },
+    { t: '"Carpe diem. Seize the day."', s: '— Dead Poets Society' },
+    { t: '"After all, tomorrow is another day."', s: '— Gone with the Wind' },
+    { t: '"I feel the need — the need for speed!"', s: '— Top Gun' },
+    { t: '"Great Scott!"', s: '— Back to the Future' },
+    { t: '"Adrian! Adriaaan!"', s: '— Rocky' },
+    { t: '"You had me at hello."', s: '— Jerry Maguire' },
+    { t: '"I\'ll have what she\'s having."', s: '— When Harry Met Sally' },
+    { t: '"It\'s alive! It\'s alive!"', s: '— Frankenstein' },
+    { t: '"Get to the chopper!"', s: '— Predator' },
+    { t: '"Why don\'t you make like a tree and get out of here?"', s: '— Back to the Future' },
+    { t: '"With great power comes great responsibility."', s: '— Spider-Man' }
+  ];
+  function pickQuote() {
+    const q = movieQuotes[Math.floor(Math.random() * movieQuotes.length)];
+    const tEl = document.getElementById('quote-text');
+    const sEl = document.getElementById('quote-source');
+    if (tEl) tEl.textContent = q.t;
+    if (sEl) sEl.textContent = q.s;
+  }
+  pickQuote();
+  const quoteEl = document.getElementById('header-quote');
+  if (quoteEl) {
+    quoteEl.title = 'Smelltu fyrir nýja tilvitnun';
+    quoteEl.addEventListener('click', pickQuote);
+  }
 
   window.switchTab = function(name, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
