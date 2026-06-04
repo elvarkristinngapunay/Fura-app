@@ -229,6 +229,13 @@
       transition: border-color 0.2s; min-width: 0;
     }
     .container-row input:focus { border-color: var(--green); }
+    .note-toggle { margin-top: 1rem; }
+    .note-toggle summary { list-style: none; cursor: pointer; font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+    .note-toggle summary::-webkit-details-marker { display: none; }
+    .note-toggle .note-toggle-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); opacity: 0.7; }
+    .note-toggle .note-arrow { transition: transform 0.2s; display: inline-block; font-size: 0.9rem; }
+    .note-toggle[open] .note-arrow { transform: rotate(180deg); }
+    .note-toggle summary:hover { color: var(--ink); }
     .nei-hint { font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem; display: flex; align-items: center; gap: 0.6rem; }
     .nei-btn { background: transparent; border: 1.5px solid var(--mid); color: var(--ink); padding: 0.4rem 1.1rem; border-radius: 7px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
     .nei-btn:hover { background: var(--rust); border-color: var(--rust); color: #fff; }
@@ -631,9 +638,11 @@
               <input type="text" id="container-settur-${job.id}" placeholder="Númer á ${isKar ? 'kari' : 'gámi'} sem settur..." />
             </div>
             ${neiHintSettur}
-            <label style="margin-top:1rem;display:block;">Athugasemd <span style="font-weight:400;text-transform:none;color:var(--muted)">(valkvætt)</span></label>
-            <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;"></textarea>
-            <button class="btn btn-green" style="width:100%;margin-top:0.25rem;" onclick="markDone('${job.id}', true)">Sótt ✓</button>
+            <details class="note-toggle">
+              <summary>Athugasemd <span class="note-toggle-hint">(valkvætt)</span><span class="note-arrow">▾</span></summary>
+              <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;margin-top:0.5rem;"></textarea>
+            </details>
+            <button class="btn btn-green" style="width:100%;margin-top:0.75rem;" onclick="markDone('${job.id}', true)">Sótt ✓</button>
           </div>
           <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
       } else {
@@ -644,9 +653,11 @@
               <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." />
             </div>
             ${neiHint}
-            <label style="margin-top:1rem;display:block;">Athugasemd <span style="font-weight:400;text-transform:none;color:var(--muted)">(valkvætt)</span></label>
-            <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;"></textarea>
-            <button class="btn btn-green" style="width:100%;margin-top:0.25rem;" onclick="markDone('${job.id}')">Sótt ✓</button>
+            <details class="note-toggle">
+              <summary>Athugasemd <span class="note-toggle-hint">(valkvætt)</span><span class="note-arrow">▾</span></summary>
+              <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;margin-top:0.5rem;"></textarea>
+            </details>
+            <button class="btn btn-green" style="width:100%;margin-top:0.75rem;" onclick="markDone('${job.id}')">Sótt ✓</button>
           </div>
           <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
       }
