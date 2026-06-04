@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fura — Stjórnandi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -99,8 +102,8 @@
     header { background: var(--dark-surface); color: #fff; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
     .header-logo { font-size: 1.2rem; font-weight: 900; color: var(--rust); letter-spacing: -0.02em; flex-shrink: 0; }
     .header-quote { flex: 1; text-align: center; padding: 0 1.5rem; overflow: hidden; min-width: 0; cursor: pointer; user-select: none; }
-    .header-quote .quote-text { display: inline; font-style: italic; font-size: 0.85rem; color: rgba(255,255,255,0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .header-quote .quote-source { display: inline; font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-left: 0.5rem; font-style: normal; }
+    .header-quote .quote-text { display: inline; font-family: 'Permanent Marker', 'Marker Felt', 'Comic Sans MS', cursive; font-size: 1.05rem; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.01em; }
+    .header-quote .quote-source { display: inline; font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-left: 0.6rem; font-style: normal; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; vertical-align: middle; }
     .header-quote:hover .quote-text { color: rgba(255,255,255,0.9); }
     @media (max-width: 700px) { .header-quote { display: none; } }
     .header-right { display: flex; align-items: center; gap: 1rem; }
