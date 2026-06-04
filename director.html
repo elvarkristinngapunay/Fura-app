@@ -102,7 +102,8 @@
     header { background: var(--dark-surface); color: #fff; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
     .header-logo { font-size: 1.2rem; font-weight: 900; color: var(--rust); letter-spacing: -0.02em; flex-shrink: 0; }
     .header-quote { flex: 1; text-align: center; padding: 0 1.5rem; overflow: hidden; min-width: 0; cursor: pointer; user-select: none; }
-    .header-quote .quote-text { display: inline; font-family: 'Permanent Marker', 'Marker Felt', 'Comic Sans MS', cursive; font-size: 1.05rem; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.01em; }
+    .header-quote .quote-text { display: inline; font-family: 'Permanent Marker', 'Marker Felt', 'Comic Sans MS', cursive; font-size: 0.95rem; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.01em; }
+    @media (max-width: 1100px) { .header-quote .quote-text { font-size: 0.85rem; } .header-quote .quote-source { font-size: 0.62rem; } }
     .header-quote .quote-source { display: inline; font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-left: 0.6rem; font-style: normal; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; vertical-align: middle; }
     .header-quote:hover .quote-text { color: rgba(255,255,255,0.9); }
     @media (max-width: 700px) { .header-quote { display: none; } }
@@ -618,7 +619,7 @@
     { t: 'You can\'t handle the truth!', s: '— A Few Good Men' },
     { t: 'I am Iron Man.', s: '— Iron Man' },
     { t: 'There\'s no place like home.', s: '— The Wizard of Oz' },
-    { t: 'Life is like a box of chocolates.', s: '— Forrest Gump' },
+    { t: 'Life is like a box of chocolates. You never know what you\'re gonna get.', s: '— Forrest Gump' },
     { t: 'Are you not entertained?', s: '— Gladiator' },
     { t: 'Yippee-ki-yay.', s: '— Die Hard' },
     { t: 'I\'m the king of the world!', s: '— Titanic' },
@@ -645,7 +646,34 @@
     { t: 'It\'s alive! It\'s alive!', s: '— Frankenstein' },
     { t: 'Get to the chopper!', s: '— Predator' },
     { t: 'Why don\'t you make like a tree and get out of here?', s: '— Back to the Future' },
-    { t: 'With great power comes great responsibility.', s: '— Spider-Man' }
+    { t: 'With great power comes great responsibility.', s: '— Spider-Man' },
+    // Top Gun
+    { t: 'Talk to me, Goose.', s: '— Top Gun' },
+    { t: 'You can be my wingman anytime.', s: '— Top Gun' },
+    { t: 'Your ego is writing checks your body can\'t cash.', s: '— Top Gun' },
+    { t: 'Take me to bed or lose me forever.', s: '— Top Gun' },
+    { t: 'Don\'t think. Just do it.', s: '— Top Gun: Maverick' },
+    { t: 'The end is inevitable, Maverick. Your kind is headed for extinction.', s: '— Top Gun: Maverick' },
+    // Pitch Perfect
+    { t: 'Aca-scuse me?', s: '— Pitch Perfect' },
+    { t: 'Aca-awesome.', s: '— Pitch Perfect' },
+    { t: 'Aca-believe it.', s: '— Pitch Perfect' },
+    // Scent of a Woman
+    { t: 'Hoo-ah.', s: '— Scent of a Woman' },
+    { t: 'I\'m just getting warmed up.', s: '— Scent of a Woman' },
+    { t: 'No mistakes in the tango, Donna. Not like life. If you make a mistake, get all tangled up, just tango on.', s: '— Scent of a Woman' },
+    // Forrest Gump
+    { t: 'Stupid is as stupid does.', s: '— Forrest Gump' },
+    { t: 'I may not be a smart man, but I know what love is.', s: '— Forrest Gump' },
+    { t: 'Jenny and me was like peas and carrots.', s: '— Forrest Gump' },
+    { t: 'Bubba was my best good friend.', s: '— Forrest Gump' },
+    { t: 'My mama always said you\'ve got to put the past behind you before you can move on.', s: '— Forrest Gump' },
+    { t: 'You have to do the best with what God gave you.', s: '— Forrest Gump' },
+    { t: 'I just felt like running.', s: '— Forrest Gump' },
+    { t: 'Mama always said you can tell a lot about a person by their shoes.', s: '— Forrest Gump' },
+    { t: 'I don\'t know if we each have a destiny, or if we\'re all just floatin\' around accidental-like on a breeze. Maybe it\'s both.', s: '— Forrest Gump' },
+    { t: 'Anyway, that\'s all I have to say about that.', s: '— Forrest Gump' },
+    { t: 'But you ain\'t got no legs, Lieutenant Dan.', s: '— Forrest Gump' }
   ];
   function pickQuote() {
     const q = movieQuotes[Math.floor(Math.random() * movieQuotes.length)];
