@@ -526,7 +526,7 @@
     const recipientLabel = isAll ? 'Sent á alla' : `Sent til þín — ${job.driverLabel || currentDriverName}`;
     const recipientStyle = isAll ? 'background:#fff3cd;color:#856404;border:1.5px solid #f0d060;' : 'background:#e8f4ff;color:#1a5fa8;border:1.5px solid #b3d4f5;';
     const isDelaying = _delayingJobId === job.id;
-    const isSkipta = job.jobType === 'skipta';
+    const isSkipta = job.jobType === 'skipta' || job.jobType === 'skipta-kari';
 
     // Done container number block
     let doneBlock = '';

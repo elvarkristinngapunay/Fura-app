@@ -275,6 +275,10 @@
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'losa')">Losa gám</button>
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'skipta')">Skipta gám</button>
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'fara')">Vantar gám</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'taka-kar')">Taka kar</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'losa-kar')">Losa kar</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'skipta-kari')">Skipta kari</button>
+            <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'vantar-kar')">Vantar kar</button>
             <button type="button" class="option-btn annad-btn" onclick="selectOption('job-type-group', this, 'annad-type')">Annað</button>
           </div>
           <div class="other-input" id="job-type-other-wrap">
@@ -337,6 +341,7 @@
 
         <div class="send-row">
           <button class="btn btn-outline" onclick="saveJob()">Vista</button>
+          <button class="btn btn-outline" onclick="printCurrentForm()">🖨 Prenta</button>
           <button class="btn btn-rust" onclick="createJob()">Senda verkefni</button>
         </div>
       </div>
@@ -603,7 +608,7 @@
     const d = getData();
     const approvedDriver = d.approvedDrivers.find(dr => dr.id === driver);
 
-    const jobTypeLabels = { sekja: 'Taka gám', losa: 'Losa gám', skipta: 'Skipta gám', fara: 'Vantar gám', 'annad-type': document.getElementById('job-type-other').value.trim() };
+    const jobTypeLabels = { sekja: 'Taka gám', losa: 'Losa gám', skipta: 'Skipta gám', fara: 'Vantar gám', 'taka-kar': 'Taka kar', 'losa-kar': 'Losa kar', 'skipta-kari': 'Skipta kari', 'vantar-kar': 'Vantar kar', 'annad-type': document.getElementById('job-type-other').value.trim() };
     const materialLabels = { jarn: 'Járn', timbur: 'Timbur', annad: document.getElementById('job-material-other').value.trim() };
     const equipmentLabels = { 'stor-gamur': 'Stór gámur', 'litill-gamur': 'Lítill gámur', krani: 'Krani', pallbill: 'Pallbíll', trailer: 'Trailer', 'annad-equip': document.getElementById('job-equipment-other').value.trim() };
 
@@ -799,6 +804,7 @@
         ${job.status === 'done' ? excelStrip(job) : ''}
         <div class="job-actions">
           <button class="btn btn-outline btn-sm" onclick="editJob('${job.id}')">Breyta</button>
+          <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
           ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button><button class="btn btn-outline btn-sm" onclick="archiveJob('${job.id}')" style="border-color:var(--muted);color:var(--muted);">🗄 Færa í geymslu</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
         </div>
@@ -819,6 +825,7 @@
         ${job.driverLabel ? `<div class="job-detail"><strong>Bílstjóri:</strong> ${job.driverLabel}</div>` : ''}
         <div class="job-actions">
           <button class="btn btn-ink btn-sm" onclick="editDraft('${job.id}')">Halda áfram</button>
+          <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
           <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
         </div>
       </div>`;
@@ -960,6 +967,187 @@
     });
   };
 
+  // ── PRINT ──────────────────────────────────────────────────────────────────
+
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function buildPrintHTML(job) {
+    const statusLabels = { new:'Bíður svars', accepted:'Samþykkt', onway:'Á leiðinni', delayed:'Frestað', done:'Lokið', archived:'Í geymslu', draft:'Drög' };
+    const statusLabel = statusLabels[job.status] || 'Nýtt';
+    const dateDisplay = job.date ? job.date.split('-').reverse().join('.') : '—';
+    const printedAt = new Date().toLocaleString('is-IS', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+    const field = (lbl, val) => val ? `<div class="field"><span class="lbl">${escHtml(lbl)}</span><span class="val">${escHtml(val)}</span></div>` : '';
+
+    let containerSection = '';
+    if (job.containerNumberTekinn) {
+      containerSection = `
+        <div class="section">
+          <h2>Gámanúmer</h2>
+          <div class="grid">
+            <div class="field"><span class="lbl">Gám tekinn</span><span class="val container-num">${escHtml(job.containerNumberTekinn)}</span></div>
+            <div class="field"><span class="lbl">Gám settur</span><span class="val container-num">${escHtml(job.containerNumberSettur || '—')}</span></div>
+          </div>
+        </div>`;
+    } else if (job.containerNumber) {
+      containerSection = `
+        <div class="section">
+          <h2>Gámanúmer</h2>
+          <div class="container-num-single">${escHtml(job.containerNumber)}</div>
+        </div>`;
+    }
+
+    const delaySection = job.status === 'delayed' && (job.delayNote || job.delayImage) ? `
+      <div class="section">
+        <h2>Ástæða töfar</h2>
+        <div class="delay">${escHtml(job.delayNote || 'Engin ástæða gefin')}</div>
+        ${job.delayImage ? `<img class="attached" src="${job.delayImage}" alt="Mynd af töf" />` : ''}
+      </div>` : '';
+
+    return `<!DOCTYPE html>
+<html lang="is">
+<head>
+<meta charset="utf-8" />
+<title>Verkefnablað — ${escHtml(job.company || 'Fura')}</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #1a1a1a; font-size: 11pt; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .toolbar { padding: 14px 20px; background: #f5f5f5; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+  .toolbar .info { font-size: 10pt; color: #666; }
+  .print-btn { background: #b8472a; color: #fff; border: none; padding: 9px 22px; border-radius: 6px; font-size: 11pt; font-weight: 600; cursor: pointer; }
+  .print-btn:hover { background: #9a3a22; }
+  .close-btn { background: transparent; color: #555; border: 1px solid #ccc; padding: 9px 18px; border-radius: 6px; font-size: 11pt; cursor: pointer; margin-right: 8px; }
+  .sheet { max-width: 200mm; margin: 24px auto; padding: 24px 28px; background: #fff; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #b8472a; padding-bottom: 10px; margin-bottom: 22px; }
+  .brand { font-weight: 900; font-size: 22pt; letter-spacing: -0.03em; color: #b8472a; line-height: 1; }
+  .brand-sub { font-size: 9pt; color: #666; text-transform: uppercase; letter-spacing: 0.14em; margin-top: 4px; }
+  .header-right { text-align: right; font-size: 9pt; color: #777; }
+  h1 { font-size: 20pt; margin: 0 0 6px 0; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+  .subline { color: #555; font-size: 11pt; margin-bottom: 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .status-tag { display: inline-block; padding: 3px 10px; font-size: 8.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 3px; }
+  .status-new { background: #fff4e5; color: #b8472a; }
+  .status-accepted { background: #e8f4ea; color: #2e7d32; }
+  .status-onway { background: #e3f2fd; color: #1565c0; }
+  .status-delayed { background: #f5e9d8; color: #8a5a2b; }
+  .status-done { background: #ececec; color: #333; }
+  .status-archived { background: #e8e4d8; color: #5a4d2b; }
+  .status-draft { background: #f0f0f0; color: #666; }
+  .section { margin-top: 18px; page-break-inside: avoid; }
+  .section h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.12em; color: #b8472a; margin: 0 0 8px 0; font-weight: 700; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 28px; }
+  .field { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid #eee; }
+  .field .lbl { font-size: 8.5pt; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; font-weight: 600; }
+  .field .val { font-size: 11.5pt; color: #1a1a1a; word-break: break-word; }
+  .field .container-num { color: #1a7a3a; font-weight: 700; letter-spacing: 0.02em; }
+  .container-num-single { font-size: 14pt; font-weight: 700; color: #1a7a3a; padding: 8px 14px; background: #f3f9f4; border-left: 3px solid #1a7a3a; border-radius: 2px; display: inline-block; letter-spacing: 0.02em; }
+  .notes { background: #fbfaf7; padding: 12px 14px; border-left: 3px solid #b8472a; border-radius: 2px; white-space: pre-wrap; font-size: 11pt; }
+  .delay { background: #f5e9d8; padding: 12px 14px; border-radius: 4px; white-space: pre-wrap; }
+  img.attached { max-width: 100%; max-height: 240px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px; display: block; }
+  .footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #eee; font-size: 8.5pt; color: #999; display: flex; justify-content: space-between; }
+  @media print {
+    .toolbar { display: none; }
+    .sheet { margin: 0; padding: 0; max-width: 100%; }
+    body { background: #fff; }
+  }
+  @media screen {
+    body { background: #ececec; }
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="info">Prentun: notaðu hnappinn til hægri eða Cmd/Ctrl + P</div>
+    <div>
+      <button class="close-btn" onclick="window.close()">Loka</button>
+      <button class="print-btn" onclick="window.print()">🖨 Prenta</button>
+    </div>
+  </div>
+  <div class="sheet">
+    <div class="header">
+      <div>
+        <div class="brand">FURA</div>
+        <div class="brand-sub">Verkefnablað</div>
+      </div>
+      <div class="header-right">Prentað ${escHtml(printedAt)}</div>
+    </div>
+
+    <h1>${escHtml(job.company || '—')}</h1>
+    <div class="subline">
+      <span><strong>Dagsetning:</strong> ${escHtml(dateDisplay)}</span>
+      <span class="status-tag status-${escHtml(job.status || 'draft')}">${escHtml(statusLabel)}</span>
+    </div>
+
+    <div class="section">
+      <h2>Verkefnisupplýsingar</h2>
+      <div class="grid">
+        ${field('Tegund verkefnis', job.jobTypeLabel)}
+        ${field('Staðsetning', job.where)}
+        ${field('Sími', job.phone)}
+        ${field('Tengill', job.contact)}
+        ${field('Efni', job.materialLabel)}
+        ${field('Tækjaþörf', job.equipmentLabel)}
+        ${field('Bílstjóri', job.driverLabel)}
+      </div>
+    </div>
+
+    ${containerSection}
+
+    ${job.notes ? `<div class="section"><h2>Athugasemd</h2><div class="notes">${escHtml(job.notes)}</div></div>` : ''}
+
+    ${delaySection}
+
+    ${job.image ? `<div class="section"><h2>Mynd</h2><img class="attached" src="${job.image}" alt="Mynd" /></div>` : ''}
+
+    <div class="footer">
+      <span>Fura Málmendurvinnsla</span>
+      <span>Verkefnablað</span>
+    </div>
+  </div>
+  <script>
+    // Auto-open print dialog once images are loaded
+    window.addEventListener('load', () => {
+      const imgs = document.querySelectorAll('img');
+      if (imgs.length === 0) { setTimeout(() => window.print(), 300); return; }
+      let loaded = 0;
+      imgs.forEach(img => {
+        if (img.complete) { loaded++; }
+        else { img.addEventListener('load', () => { loaded++; if (loaded === imgs.length) setTimeout(() => window.print(), 300); });
+               img.addEventListener('error', () => { loaded++; if (loaded === imgs.length) setTimeout(() => window.print(), 300); }); }
+      });
+      if (loaded === imgs.length) setTimeout(() => window.print(), 300);
+    });
+  </${'script'}>
+</body>
+</html>`;
+  }
+
+  function openPrintWindow(job) {
+    const w = window.open('', '_blank');
+    if (!w) { showToast('Vafrinn hindraði prentglugga — leyfðu sprettiglugga'); return; }
+    w.document.open();
+    w.document.write(buildPrintHTML(job));
+    w.document.close();
+  }
+
+  window.printJob = function(id) {
+    const job = getData().jobs.find(j => j.id === id);
+    if (!job) { showToast('Verkefni fannst ekki'); return; }
+    openPrintWindow(job);
+  };
+
+  window.printCurrentForm = function() {
+    const data = collectFormData();
+    if (!data.company && !data.where && !data.jobType) {
+      showToast('Fylltu út verkefnið fyrst');
+      return;
+    }
+    openPrintWindow({ ...data, status: _editingJobStatus || 'draft' });
+  };
+
   // ── GEYMSLA ────────────────────────────────────────────────────────────────
 
   window.archiveJob = async function(id) {
@@ -1051,6 +1239,7 @@
           ${job.image ? `<img src="${job.image}" style="width:100%;border-radius:8px;margin-top:0.6rem;max-height:180px;object-fit:cover;" alt="Mynd" />` : ''}
           <div class="archive-actions">
             <button class="btn btn-outline btn-sm" onclick="unarchiveJob('${job.id}')">↩ Færa til baka í Lokið</button>
+            <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
             <button class="btn btn-red btn-sm" onclick="deleteArchivedJob('${job.id}')">Eyða</button>
           </div>
         </div>`;
