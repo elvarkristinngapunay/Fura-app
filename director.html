@@ -10,10 +10,50 @@
       --rust: #c4621a; --green: #2f5233; --ink: #1a1512;
       --warm: #f5f0ea; --mid: #e8e0d5; --muted: #6b6259;
       --white: #ffffff; --red: #c0392b; --yellow: #f39c12; --blue: #1a6bb5;
+      --dark-surface: #1a1512;
+      --modal-overlay: rgba(0,0,0,0.55);
     }
+    /* ── DARK MODE (dim, warm — not pure black) ───────────────────────────── */
+    [data-theme="dark"] {
+      --warm: #28231f;
+      --white: #322d28;
+      --ink: #ece6dc;
+      --mid: #463e36;
+      --muted: #a39888;
+      --dark-surface: #14110e;
+      --modal-overlay: rgba(0,0,0,0.7);
+    }
+    [data-theme="dark"] .badge-draft, [data-theme="dark"] .badge-archived { background: #3a352f; color: #b0a59a; }
+    [data-theme="dark"] .badge-new { background: #4a2a28; color: #ea8a82; }
+    [data-theme="dark"] .badge-accepted { background: #4a3e1c; color: #e8c870; }
+    [data-theme="dark"] .badge-onway { background: #1f3a55; color: #82b8e8; }
+    [data-theme="dark"] .badge-delayed { background: #4a3a2a; color: #d4a878; }
+    [data-theme="dark"] .badge-done { background: #2a3a2e; color: #80c090; }
+    [data-theme="dark"] .driver-tag-waiting { background: #4a2a28; color: #ea8a82; }
+    [data-theme="dark"] .driver-tag-accepted { background: #4a3e1c; color: #e8c870; }
+    [data-theme="dark"] .driver-tag-onway { background: #1f3a55; color: #82b8e8; }
+    [data-theme="dark"] .driver-tag-delayed { background: #4a3a2a; color: #d4a878; }
+    [data-theme="dark"] .driver-tag-done { background: #2a3a2e; color: #80c090; }
+    [data-theme="dark"] .delay-info-dir { background: #3a2f24; border-left-color: #b87850; }
+    [data-theme="dark"] .delay-info-dir strong { color: #d4a878; }
+    [data-theme="dark"] .excel-strip { background: #1f2f45; border-color: #2d4a6e; }
+    [data-theme="dark"] .excel-cell { background: #28231f; border-color: #2d4a6e; color: var(--ink); }
+    [data-theme="dark"] .annad-tag { background: #4a3e1c; color: #e8c870; border-color: #c89020; }
+    [data-theme="dark"] .option-btn.annad-btn { background: #3a3220; border-color: #8a7220; color: #d4b860; }
+    [data-theme="dark"] .option-btn.annad-btn.selected { background: #c89020; border-color: #c89020; color: #2a2010; }
+    [data-theme="dark"] .image-remove-btn { background: rgba(0,0,0,0.7); }
+    [data-theme="dark"] .form-card,
+    [data-theme="dark"] .job-card,
+    [data-theme="dark"] .request-card,
+    [data-theme="dark"] .driver-card,
+    [data-theme="dark"] .archive-card,
+    [data-theme="dark"] .modal-box { box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    /* Theme toggle button */
+    .theme-toggle { background: none; border: none; color: rgba(255,255,255,0.55); cursor: pointer; font-size: 1.1rem; padding: 0.3rem 0.5rem; border-radius: 4px; transition: color 0.2s; }
+    .theme-toggle:hover { color: #fff; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
 
-    #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--ink); }
+    #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--dark-surface); }
     .back-link { font-size: 0.78rem; color: rgba(255,255,255,0.35); text-decoration: none; display: inline-block; margin-bottom: 1.5rem; }
     .back-link:hover { color: rgba(255,255,255,0.7); }
     .login-box { background: var(--white); border-radius: 12px; padding: 2.5rem 2rem; width: 100%; max-width: 360px; text-align: center; }
@@ -34,7 +74,7 @@
     .btn:active { transform: translateY(0); }
     .btn-rust { background: var(--rust); color: #fff; }
     .btn-green { background: var(--green); color: #fff; }
-    .btn-ink { background: var(--ink); color: #fff; }
+    .btn-ink { background: var(--dark-surface); color: #fff; }
     .btn-red { background: var(--red); color: #fff; }
     .btn-outline { background: transparent; border: 1.5px solid var(--mid); color: var(--ink); }
     .btn-full { width: 100%; }
@@ -56,7 +96,7 @@
     .other-input { margin-top: 0.5rem; display: none; }
 
     #app { display: none; }
-    header { background: var(--ink); color: #fff; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    header { background: var(--dark-surface); color: #fff; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
     .header-logo { font-size: 1.2rem; font-weight: 900; color: var(--rust); letter-spacing: -0.02em; }
     .header-right { display: flex; align-items: center; gap: 1rem; }
     .header-role { font-size: 0.75rem; background: rgba(196,98,26,0.25); color: var(--rust); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; }
@@ -130,7 +170,7 @@
     .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: 0.9rem; }
     .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 
-    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--ink); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; }
+    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--dark-surface); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; }
     .toast.show { transform: translateX(-50%) translateY(0); }
 
     /* ── IMAGE UPLOAD ── */
@@ -154,7 +194,7 @@
 
     /* ── CONFIRM MODAL ── */
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      position: fixed; inset: 0; background: var(--modal-overlay);
       display: flex; align-items: center; justify-content: center;
       z-index: 200; padding: 1.5rem;
     }
@@ -225,6 +265,7 @@
     <div class="header-logo">Fura</div>
     <div class="header-right">
       <span class="header-role">Stjórnandi</span>
+      <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Skipta um þema" aria-label="Skipta um þema">🌙</button>
       <button class="logout-btn" onclick="doLogout()">Útskrá</button>
     </div>
   </header>
@@ -534,6 +575,22 @@
     document.getElementById('login-password').value = '';
   };
   document.getElementById('login-password').addEventListener('keydown', e => { if (e.key==='Enter') window.doLogin(); });
+
+  // ── THEME TOGGLE ───────────────────────────────────────────────────────────
+  function applyTheme(theme) {
+    if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+    const btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+  window.toggleTheme = function() {
+    const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('fura_theme', next);
+    applyTheme(next);
+  };
+  // Apply saved theme on load (default: light)
+  applyTheme(localStorage.getItem('fura_theme') === 'dark' ? 'dark' : 'light');
 
   window.switchTab = function(name, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
