@@ -45,6 +45,14 @@
     .option-btn.selected { background: var(--rust); border-color: var(--rust); color: #fff; }
     .option-btn.annad-btn { font-size: 0.75rem; padding: 0.35rem 0.75rem; border-color: #e8c84a; color: #7a6200; background: #fef9e0; }
     .option-btn.annad-btn.selected { background: #e8c84a; border-color: #e8c84a; color: #3a2e00; }
+    /* Job-type group: 4 cols of gam/kar pairs + Annad on the right spanning both rows */
+    #job-type-group { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+    #job-type-group .option-btn { padding: 0.5rem 0.5rem; }
+    #job-type-group .annad-btn { grid-column: 5; grid-row: 1 / span 2; align-self: stretch; display: flex; align-items: center; justify-content: center; }
+    @media (max-width: 600px) {
+      #job-type-group { grid-template-columns: repeat(4, 1fr); }
+      #job-type-group .annad-btn { grid-column: 1 / -1; grid-row: auto; }
+    }
     .other-input { margin-top: 0.5rem; display: none; }
 
     #app { display: none; }
