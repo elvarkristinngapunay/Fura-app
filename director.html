@@ -971,7 +971,7 @@
           </div>
         </div>
         ${job.notes ? `<div class="job-detail"><strong>Athugasemd:</strong> ${job.notes}</div>` : ''}
-        ${job.containerNumberTekinn ? `<div class="job-detail"><strong>Gám tekinn:</strong> <strong style="color:var(--green)">${job.containerNumberTekinn}</strong></div><div class="job-detail"><strong>Gám settur:</strong> <strong style="color:var(--green)">${job.containerNumberSettur || '—'}</strong></div>` : job.containerNumber ? `<div class="job-detail"><strong>Gámanúmer:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''}
+        ${(() => { const k = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType); const s = k?'Kar':'Gám'; const l = k?'Karnúmer':'Gámanúmer'; return job.containerNumberTekinn ? `<div class="job-detail"><strong>${s} tekinn:</strong> <strong style="color:var(--green)">${job.containerNumberTekinn}</strong></div><div class="job-detail"><strong>${s} settur:</strong> <strong style="color:var(--green)">${job.containerNumberSettur || '—'}</strong></div>` : job.containerNumber ? `<div class="job-detail"><strong>${l}:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''; })()}
         ${job.completionNote ? `<div class="delay-info-dir" style="border-left-color:var(--rust);background:#fff8f6;"><strong>⚠️ Athugasemd bílstjóra</strong>${job.completionNote}</div>` : ''}
         ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
@@ -1155,20 +1155,23 @@
 
     const field = (lbl, val) => val ? `<div class="field"><span class="lbl">${escHtml(lbl)}</span><span class="val">${escHtml(val)}</span></div>` : '';
 
+    const isKarPrint = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+    const unitLongPrint = isKarPrint ? 'Karnúmer' : 'Gámanúmer';
+    const unitShortPrint = isKarPrint ? 'Kar' : 'Gám';
     let containerSection = '';
     if (job.containerNumberTekinn) {
       containerSection = `
         <div class="section">
-          <h2>Gámanúmer</h2>
+          <h2>${unitLongPrint}</h2>
           <div class="grid">
-            <div class="field"><span class="lbl">Gám tekinn</span><span class="val container-num">${escHtml(job.containerNumberTekinn)}</span></div>
-            <div class="field"><span class="lbl">Gám settur</span><span class="val container-num">${escHtml(job.containerNumberSettur || '—')}</span></div>
+            <div class="field"><span class="lbl">${unitShortPrint} tekinn</span><span class="val container-num">${escHtml(job.containerNumberTekinn)}</span></div>
+            <div class="field"><span class="lbl">${unitShortPrint} settur</span><span class="val container-num">${escHtml(job.containerNumberSettur || '—')}</span></div>
           </div>
         </div>`;
     } else if (job.containerNumber) {
       containerSection = `
         <div class="section">
-          <h2>Gámanúmer</h2>
+          <h2>${unitLongPrint}</h2>
           <div class="container-num-single">${escHtml(job.containerNumber)}</div>
         </div>`;
     }
@@ -1389,9 +1392,12 @@
     listEl.innerHTML = matches.map(job => {
       const archivedDate = job.archivedAt ? new Date(job.archivedAt).toLocaleDateString('is-IS', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
       const jobDateFmt = job.date || '—';
+      const isKarArc = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+      const sArc = isKarArc ? 'Kar' : 'Gám';
+      const lArc = isKarArc ? 'Karnúmer' : 'Gámanúmer';
       const containerInfo = job.containerNumberTekinn
-        ? `<div class="archive-detail"><strong>Gám tekinn:</strong> ${job.containerNumberTekinn}</div><div class="archive-detail"><strong>Gám settur:</strong> ${job.containerNumberSettur || '—'}</div>`
-        : job.containerNumber ? `<div class="archive-detail"><strong>Gámanúmer:</strong> ${job.containerNumber}</div>` : '';
+        ? `<div class="archive-detail"><strong>${sArc} tekinn:</strong> ${job.containerNumberTekinn}</div><div class="archive-detail"><strong>${sArc} settur:</strong> ${job.containerNumberSettur || '—'}</div>`
+        : job.containerNumber ? `<div class="archive-detail"><strong>${lArc}:</strong> ${job.containerNumber}</div>` : '';
       return `
         <div class="archive-card">
           <div class="archive-card-header">

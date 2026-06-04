@@ -229,6 +229,9 @@
       transition: border-color 0.2s; min-width: 0;
     }
     .container-row input:focus { border-color: var(--green); }
+    .nei-hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+    .nei-btn { background: transparent; border: 1.5px solid var(--mid); color: var(--ink); padding: 0.2rem 0.7rem; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+    .nei-btn:hover { background: var(--rust); border-color: var(--rust); color: #fff; }
     .status-actions { margin-top: 1rem; }
 
     .empty-state { text-align: center; padding: 4rem 1rem; color: var(--muted); }
@@ -577,16 +580,19 @@
     const recipientClass = isAll ? 'recipient-all' : 'recipient-you';
     const isDelaying = _delayingJobId === job.id;
     const isSkipta = job.jobType === 'skipta' || job.jobType === 'skipta-kari';
+    const isKar = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+    const unitLong = isKar ? 'Karnúmer' : 'Gámanúmer';
+    const unitShort = isKar ? 'Kar' : 'Gám';
 
     // Done container number block
     let doneBlock = '';
     if (job.status === 'done') {
       doneBlock = `<hr class="job-divider"/>`;
       if (job.containerNumberTekinn) {
-        doneBlock += `<div class="job-detail"><strong>Gám tekinn</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumberTekinn}</span></div>`;
-        doneBlock += `<div class="job-detail"><strong>Gám settur</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumberSettur || '—'}</span></div>`;
+        doneBlock += `<div class="job-detail"><strong>${unitShort} tekinn</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumberTekinn}</span></div>`;
+        doneBlock += `<div class="job-detail"><strong>${unitShort} settur</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumberSettur || '—'}</span></div>`;
       } else {
-        doneBlock += `<div class="job-detail"><strong>Gámanúmer</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumber || '—'}</span></div>`;
+        doneBlock += `<div class="job-detail"><strong>${unitLong}</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumber || '—'}</span></div>`;
       }
     }
 
@@ -611,15 +617,20 @@
           <button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button>
         </div>`;
     } else if (job.status === 'onway' && !isDelaying) {
+      const neiHint = isKar ? `<div class="nei-hint">Ekkert númer á þessu kari? <button type="button" class="nei-btn" onclick="markNei('container-${job.id}')">Nei</button></div>` : '';
+      const neiHintTekinn = isKar ? `<div class="nei-hint">Ekkert númer? <button type="button" class="nei-btn" onclick="markNei('container-tekinn-${job.id}')">Nei</button></div>` : '';
+      const neiHintSettur = isKar ? `<div class="nei-hint">Ekkert númer? <button type="button" class="nei-btn" onclick="markNei('container-settur-${job.id}')">Nei</button></div>` : '';
       if (isSkipta) {
         actionBlock = `
           <div class="container-input-wrap">
-            <label>Gámanúmer — Tekinn</label>
-            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Númer á gámi sem tekinn..." />
-            <label style="margin-top:0rem;display:block;">Gámanúmer — Settur</label>
+            <label>${unitLong} — Tekinn</label>
+            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Númer á ${isKar ? 'kari' : 'gámi'} sem tekinn..." />
+            ${neiHintTekinn}
+            <label style="margin-top:0.5rem;display:block;">${unitLong} — Settur</label>
             <div class="container-row" style="margin-top:0.4rem;">
-              <input type="text" id="container-settur-${job.id}" placeholder="Númer á gámi sem settur..." />
+              <input type="text" id="container-settur-${job.id}" placeholder="Númer á ${isKar ? 'kari' : 'gámi'} sem settur..." />
             </div>
+            ${neiHintSettur}
             <label style="margin-top:1rem;display:block;">Athugasemd <span style="font-weight:400;text-transform:none;color:var(--muted)">(valkvætt)</span></label>
             <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;"></textarea>
             <button class="btn btn-green" style="width:100%;margin-top:0.25rem;" onclick="markDone('${job.id}', true)">Sótt ✓</button>
@@ -628,10 +639,11 @@
       } else {
         actionBlock = `
           <div class="container-input-wrap">
-            <label>Gámanúmer</label>
+            <label>${unitLong}</label>
             <div class="container-row">
               <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." />
             </div>
+            ${neiHint}
             <label style="margin-top:1rem;display:block;">Athugasemd <span style="font-weight:400;text-transform:none;color:var(--muted)">(valkvætt)</span></label>
             <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;"></textarea>
             <button class="btn btn-green" style="width:100%;margin-top:0.25rem;" onclick="markDone('${job.id}')">Sótt ✓</button>
@@ -716,27 +728,34 @@
     showToast('Merkt: Á leiðinni 🚛');
   };
 
+  window.markNei = function(inputId) {
+    const el = document.getElementById(inputId);
+    if (el) { el.value = 'Nei'; el.focus(); el.blur(); }
+  };
+
   window.markDone = async function(id, isSkipta) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
     const updated = { ...job, status: 'done' };
     const completionNote = (document.getElementById('completion-note-'+id)||{value:''}).value.trim();
+    const isKarJob = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+    const unitName = isKarJob ? 'karnúmer' : 'gámanúmer';
     if (isSkipta) {
       const tekinn = (document.getElementById('container-tekinn-'+id)||{value:''}).value.trim();
       const settur = (document.getElementById('container-settur-'+id)||{value:''}).value.trim();
-      if (!tekinn || !settur) { showToast('Sláðu inn báðar gámanúmer'); return; }
+      if (!tekinn || !settur) { showToast('Sláðu inn bæði ' + unitName); return; }
       updated.containerNumberTekinn = tekinn;
       updated.containerNumberSettur = settur;
     } else {
       const num = (document.getElementById('container-'+id)||{value:''}).value.trim();
-      if (!num) { showToast('Sláðu inn gámanúmer'); return; }
+      if (!num) { showToast('Sláðu inn ' + unitName); return; }
       updated.containerNumber = num;
     }
     if (completionNote) updated.completionNote = completionNote;
     await fsSetJob(updated);
     window.switchTab('klarud');
-    showToast('Lokið! Gámanúmer skráð ✓');
+    showToast('Lokið! ' + (isKarJob ? 'Karnúmer' : 'Gámanúmer') + ' skráð ✓');
   };
 
   window.showDelayForm = function(id) {
