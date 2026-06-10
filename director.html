@@ -904,8 +904,13 @@
   async function doSend(data) {
     const isEdit = !!_editingJobId;
     const id = _editingJobId || Date.now().toString();
-    const status = isEdit ? (_editingJobStatus || 'new') : 'new';
-    const job = { id, ...data, status, createdAt: new Date().toISOString() };
+    const existing = isEdit ? getData().jobs.find(j => j.id === id) : null;
+    const status = isEdit ? (existing?.status || _editingJobStatus || 'new') : 'new';
+    // When editing: merge new form fields onto existing job so things like
+    // containerNumber, archivedAt, completionNote, delay info stay intact
+    const job = isEdit && existing
+      ? { ...existing, ...data, id, status, createdAt: existing.createdAt || new Date().toISOString() }
+      : { id, ...data, status, createdAt: new Date().toISOString() };
     _editingJobId = null; _editingJobStatus = null;
     await fsSetJob(job);
     showToast(isEdit ? 'Verkefni uppfært!' : 'Verkefni sent!');
