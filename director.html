@@ -578,8 +578,8 @@
       <div class="form-group">
         <label>Staða</label>
         <div class="container-status-pick" id="cm-status-group">
-          <button type="button" class="option-btn" onclick="cmPickStatus(this, 'heima')">🏠 Heima</button>
-          <button type="button" class="option-btn" onclick="cmPickStatus(this, 'utleigu')">🚛 Í útleigu</button>
+          <button type="button" class="option-btn" onclick="cmPickStatus(this, 'heima')">Heima</button>
+          <button type="button" class="option-btn" onclick="cmPickStatus(this, 'utleigu')">Úti</button>
         </div>
       </div>
       <div id="cm-utleigu-fields" style="display:none;">
@@ -986,7 +986,7 @@
     const total = all.length;
     const utleigu = all.filter(c => c.status === 'utleigu').length;
     const heima = all.filter(c => c.status === 'heima').length;
-    sumEl.innerHTML = `<strong>${total}</strong> gámar alls · <strong style="color:var(--rust);">${utleigu}</strong> í útleigu · <strong style="color:var(--green);">${heima}</strong> heima`;
+    sumEl.innerHTML = `<strong>${total}</strong> gámar alls · <strong style="color:var(--rust);">${utleigu}</strong> úti · <strong style="color:var(--green);">${heima}</strong> heima`;
 
     let list = sortContainers(all);
     if (q) {
@@ -1011,7 +1011,7 @@
     const sizeTag = c.size ? `<span class="container-size-tag">${sizeLabels[c.size] || c.size}</span>` : '';
     const sergerdTag = c.sergerd ? `<span class="container-sergerd-tag">${sergerdLabels[c.sergerd] || c.sergerd}</span>` : '';
     const statusTag = isUtleigu
-      ? `<span class="container-status-tag container-status-utleigu">Í útleigu</span>`
+      ? `<span class="container-status-tag container-status-utleigu">Úti</span>`
       : `<span class="container-status-tag container-status-heima">Heima</span>`;
     const efni = efniDisplay(c);
     const days = isUtleigu ? daysSince(c.placedAt) : null;
@@ -1420,7 +1420,7 @@
         const [val, lbl] = o.split(':');
         return `<option value="${val}"${val === r.sergerd ? ' selected' : ''}>${lbl || '—'}</option>`;
       }).join('');
-      const statusOpts = ['heima:🏠 Heima', 'utleigu:🚛 Útleigu'].map(o => {
+      const statusOpts = ['heima:Heima', 'utleigu:Úti'].map(o => {
         const [val, lbl] = o.split(':');
         return `<option value="${val}"${val === r.status ? ' selected' : ''}>${lbl}</option>`;
       }).join('');
