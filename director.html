@@ -118,6 +118,27 @@
     .rental-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; justify-content: flex-end; }
     .rental-warning { margin-top: 0.6rem; padding: 0.55rem 0.85rem; background: #fef4e5; border-left: 3px solid var(--yellow); border-radius: 4px; color: #8a5a2b; font-size: 0.82rem; font-weight: 600; }
     [data-theme="dark"] .rental-warning { background: #4a3a2a; color: #d4a878; }
+    .rental-saved { margin-top: 0.75rem; padding: 0.5rem 0.85rem; background: #eaf4ec; color: var(--green); font-size: 0.78rem; font-weight: 700; border-radius: 5px; text-align: center; }
+    [data-theme="dark"] .rental-saved { background: #2a3a2e; color: #80c090; }
+    /* Í útleigu 2-column layout: containers on left, billing panel on right */
+    .utleiga-layout { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+    .utleiga-layout.has-billing { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+    @media (max-width: 850px) {
+      .utleiga-layout.has-billing { grid-template-columns: 1fr; }
+      .utleiga-billing-panel { order: -1; }
+    }
+    /* Billing panel */
+    .utleiga-billing-panel { position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow-y: auto; }
+    .billing-panel-header { font-size: 0.78rem; font-weight: 800; color: var(--rust); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.6rem; padding: 0 0.25rem; display: flex; align-items: center; gap: 0.4rem; }
+    .billing-card { background: var(--white); border: 2px solid var(--rust); border-radius: 10px; padding: 0.9rem 1rem; margin-bottom: 0.7rem; box-shadow: 0 2px 8px rgba(196,98,26,0.18); }
+    .billing-card-title { font-size: 0.7rem; font-weight: 800; color: var(--rust); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+    .billing-card-num { font-size: 1.05rem; font-weight: 900; color: var(--ink); margin-bottom: 0.35rem; }
+    .billing-card-line { font-size: 0.85rem; color: var(--ink); margin-bottom: 0.2rem; line-height: 1.4; }
+    .billing-card-line strong { color: var(--ink); font-weight: 700; }
+    .billing-card-line.muted { color: var(--muted); font-size: 0.78rem; }
+    .billing-card-line .billing-efni { color: var(--rust); font-weight: 700; }
+    .billing-card-actions { margin-top: 0.75rem; }
+    .billing-card-actions .btn { width: 100%; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
 
     #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--dark-surface); }
@@ -513,7 +534,10 @@
         <button class="btn btn-outline btn-sm" onclick="openContainerImport()">📥 Flytja inn úr Excel</button>
       </div>
       <div id="utleiga-summary" class="utleiga-summary"></div>
-      <div id="utleiga-list"></div>
+      <div class="utleiga-layout" id="utleiga-layout">
+        <div id="utleiga-list"></div>
+        <div id="utleiga-billing-panel" class="utleiga-billing-panel" style="display:none;"></div>
+      </div>
     </div>
 
     <!-- BEIÐNIR -->
@@ -616,6 +640,10 @@
         <label>Athugasemd (valkvætt)</label>
         <textarea id="cm-note" rows="2" placeholder="Annað sem skiptir máli..."></textarea>
       </div>
+      <label class="cm-checkbox">
+        <input type="checkbox" id="cm-renumber" />
+        <span><strong>⚠ Þarf nýtt númer þegar kemur heim</strong><br/><small style="color:var(--muted);">Notað t.d. þegar tveir gámar hafa sama númer — þú endurnúmerar þennan við heimkomu</small></span>
+      </label>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeContainerForm()">Hætta við</button>
@@ -704,6 +732,7 @@
     if (active.id==='tab-jobs')    renderJobsList();
     if (active.id==='tab-drafts')  renderDrafts();
     if (active.id==='tab-geymsla') renderGeymsla();
+    if (active.id==='tab-utleiga') renderBillingPanel();
     updateRequestsBadge();
   });
   onSnapshot(collection(db,'driverRequests'), snap => {
@@ -989,6 +1018,49 @@
     return efniLabels[c.efni] || c.efni;
   }
 
+  function collectBillingItems() {
+    const items = [];
+    for (const job of appData.jobs) {
+      if (!job.rentalSummaries) continue;
+      for (const s of job.rentalSummaries) {
+        if (s.inBillingPanel) items.push({ ...s, jobId: job.id, jobDate: job.date });
+      }
+    }
+    return items.sort((a, b) => (b.returnedAt || '').localeCompare(a.returnedAt || ''));
+  }
+
+  function renderBillingPanel() {
+    const panelEl = document.getElementById('utleiga-billing-panel');
+    const layoutEl = document.getElementById('utleiga-layout');
+    if (!panelEl || !layoutEl) return;
+    const items = collectBillingItems();
+    if (items.length === 0) {
+      panelEl.style.display = 'none';
+      layoutEl.classList.remove('has-billing');
+      return;
+    }
+    layoutEl.classList.add('has-billing');
+    panelEl.style.display = 'block';
+    const cards = items.map(s => {
+      const placedFmt = fmtIcelandicDate(s.placedAt);
+      const returnedFmt = fmtIcelandicDate(s.returnedAt);
+      const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
+      const wherePart = s.company && s.where ? `${escHtml(s.company)} — ${escHtml(s.where)}` : escHtml(s.company || s.where || '—');
+      return `<div class="billing-card">
+        <div class="billing-card-title">⏱ Heimkomið — vantar skráningu</div>
+        <div class="billing-card-num">Gámur #${escHtml(s.containerId)}</div>
+        <div class="billing-card-line"><strong>📍 ${wherePart}</strong></div>
+        <div class="billing-card-line">⏱ <strong>${daysLabel(s.days)}</strong></div>
+        <div class="billing-card-line muted">${placedFmt} → ${returnedFmt}</div>
+        ${efniText ? `<div class="billing-card-line">♻ <span class="billing-efni">${escHtml(efniText)}</span></div>` : ''}
+        <div class="billing-card-actions">
+          <button class="btn btn-green btn-sm" onclick="markBillingDone('${escHtml(s.jobId)}','${escHtml(s.containerId).replace(/'/g, "\\'")}','${escHtml(s.placedAt)}')">✓ Búið að skrá</button>
+        </div>
+      </div>`;
+    }).join('');
+    panelEl.innerHTML = `<div class="billing-panel-header">📋 Heimkoma — bíður skráningar (${items.length})</div>${cards}`;
+  }
+
   function renderUtleiga() {
     const listEl = document.getElementById('utleiga-list');
     const sumEl = document.getElementById('utleiga-summary');
@@ -1012,10 +1084,10 @@
       listEl.innerHTML = total === 0
         ? `<div class="empty-state"><div class="icon">🚛</div>Engir gámar í kerfinu enn<br><small style="font-size:0.8rem;margin-top:0.5rem;display:block;">Smelltu á <strong>+ Bæta við gámi</strong> til að byrja</small></div>`
         : `<div class="empty-state"><div class="icon">🔍</div>Engir gámar fundust</div>`;
-      return;
+    } else {
+      listEl.innerHTML = list.map(containerCard).join('');
     }
-
-    listEl.innerHTML = list.map(containerCard).join('');
+    renderBillingPanel();
   }
 
   function containerCard(c) {
@@ -1214,9 +1286,6 @@
     const warnings = job.rentalWarnings || [];
     if (summaries.length === 0 && warnings.length === 0) return '';
 
-    const visible = job.rentalSummariesVisible; // true / false / undefined
-    const choiceMade = visible === true || visible === false;
-
     let html = '';
     if (warnings.length > 0) {
       html += warnings.map(w => `<div class="rental-warning">⚠ ${escHtml(w)}</div>`).join('');
@@ -1232,30 +1301,37 @@
           <div class="rental-dates">${placedFmt} → ${returnedFmt}${efniText ? ` · Efni: <strong>${escHtml(efniText)}</strong>` : ''}</div>
         </div>`;
       }).join('');
-      if (!choiceMade) {
-        html += `<div class="rental-summary"><div class="rental-summary-title">Útleigusaga</div>${items}
-          <div class="rental-actions">
-            <button class="btn btn-outline btn-sm" onclick="rentalLoka('${job.id}')">Loka</button>
-            <button class="btn btn-green btn-sm" onclick="rentalVista('${job.id}')">✓ Vista á blað</button>
-          </div></div>`;
-      } else if (visible === true) {
-        html += `<div class="rental-summary"><div class="rental-summary-title">Útleigusaga</div>${items}</div>`;
-      }
+      const anyNotSaved = summaries.some(s => !s.inBillingPanel);
+      const actions = anyNotSaved
+        ? `<div class="rental-actions"><button class="btn btn-green btn-sm" onclick="rentalVista('${job.id}')">✓ Vista í útleiguskjal</button></div>`
+        : `<div class="rental-saved">✓ Vistað í útleiguskjal — sjá Í útleigu</div>`;
+      html += `<div class="rental-summary"><div class="rental-summary-title">Útleigusaga</div>${items}${actions}</div>`;
     }
     return html;
   }
 
   window.rentalVista = async function(jobId) {
     const job = appData.jobs.find(j => j.id === jobId);
-    if (!job) return;
-    await fsSetJob({ ...job, rentalSummariesVisible: true });
-    showToast('Útleigusaga vistuð á blað ✓');
+    if (!job || !job.rentalSummaries) return;
+    const updated = {
+      ...job,
+      rentalSummaries: job.rentalSummaries.map(s => ({ ...s, inBillingPanel: true, jobId }))
+    };
+    await fsSetJob(updated);
+    showToast('Vistað í útleiguskjal ✓');
   };
-  window.rentalLoka = async function(jobId) {
+
+  window.markBillingDone = async function(jobId, containerId, placedAt) {
     const job = appData.jobs.find(j => j.id === jobId);
-    if (!job) return;
-    await fsSetJob({ ...job, rentalSummariesVisible: false });
-    showToast('Lokað');
+    if (!job || !job.rentalSummaries) return;
+    const updated = {
+      ...job,
+      rentalSummaries: job.rentalSummaries.map(s =>
+        (s.containerId === containerId && s.placedAt === placedAt) ? { ...s, inBillingPanel: false } : s
+      )
+    };
+    await fsSetJob(updated);
+    showToast('Búið að skrá ✓');
   };
 
   window.openContainerImport = function() {
@@ -2084,7 +2160,32 @@
   };
 
   window.deleteJob = async function(id) {
+    const job = appData.jobs.find(j => j.id === id);
+    if (!job) return;
+    const hasRental = job.rentalSummaries && job.rentalSummaries.length > 0;
     if (!confirm('Eyða þessu verkefni?')) return;
+    if (hasRental) {
+      const s = job.rentalSummaries[0];
+      const wherePart = s.company && s.where ? `${s.company} (${s.where})` : (s.company || s.where || '');
+      const msg = `Þetta verkefni var tengt gámi #${s.containerId} sem fór úr útleigu hjá ${wherePart} í ${daysLabel(s.days)}.\n\nViltu líka breyta stöðu gámsins í útleiguskjalinu?`;
+      const goEdit = confirm(msg);
+      await fsDeleteJob(id);
+      showToast('Verkefni eytt');
+      if (goEdit) {
+        const candidates = appData.containers.filter(c => c.id === s.containerId);
+        const target = candidates.find(c => c.company === s.company && c.where === s.where)
+                    || candidates.find(c => c.status === 'heima')
+                    || candidates[0];
+        if (target) {
+          const utleigaBtn = [...document.querySelectorAll('.tab-btn')].find(b => b.id === 'utleiga-tab-btn');
+          if (utleigaBtn) window.switchTab('utleiga', utleigaBtn);
+          setTimeout(() => window.editContainer(target._key), 100);
+        } else {
+          showToast('Gámur fannst ekki í Í útleigu');
+        }
+      }
+      return;
+    }
     await fsDeleteJob(id);
     showToast('Verkefni eytt');
   };
