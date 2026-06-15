@@ -1051,7 +1051,6 @@
         ${row2}
         <div class="container-actions">
           <button class="btn btn-outline btn-sm" onclick="editContainer('${escHtml(c.id).replace(/'/g, "\\'")}')">Breyta</button>
-          ${isUtleigu ? `<button class="btn btn-green btn-sm" onclick="markContainerHome('${escHtml(c.id).replace(/'/g, "\\'")}')">✓ Sóttur (heim)</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="deleteContainer('${escHtml(c.id).replace(/'/g, "\\'")}')">Eyða</button>
         </div>
       </div>`;
