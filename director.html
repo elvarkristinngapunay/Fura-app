@@ -1779,6 +1779,61 @@
     }
   };
 
+  // Reverse the rental state changes that were applied when the original
+  // job was marked Lokid. Used before re-running rental logic on edit.
+  async function reverseRentalLogic(oldJob) {
+    if (!GAM_JOB_TYPES.includes(oldJob.jobType)) return;
+    const now = new Date().toISOString();
+    const restoreFromSummary = async (s) => {
+      const matches = appData.containers.filter(c => c.id === s.containerId);
+      if (matches.length === 0) return;
+      const target = matches.find(c => c.status === 'heima') || matches[0];
+      await fsSetContainer({
+        ...target,
+        status: 'utleigu',
+        company: s.company || '',
+        where: s.where || '',
+        placedAt: s.placedAt || null,
+        efni: s.efni || '',
+        efniLabel: s.efniLabel || '',
+        updatedAt: now
+      });
+    };
+    const undoStart = async (num, jobCompany, jobWhere) => {
+      if (!num || num === 'Nei') return;
+      const matches = appData.containers.filter(c => c.id === num);
+      if (matches.length === 0) return;
+      const target = matches.find(c => c.status === 'utleigu' && c.company === jobCompany && c.where === jobWhere)
+                  || matches.find(c => c.status === 'utleigu')
+                  || matches[0];
+      await fsSetContainer({
+        ...target, status: 'heima',
+        company: '', where: '', placedAt: null, efni: '', efniLabel: '',
+        updatedAt: now
+      });
+    };
+    // Restore end events (recorded in summaries)
+    if (oldJob.rentalSummaries) {
+      for (const s of oldJob.rentalSummaries) await restoreFromSummary(s);
+    }
+    // Reverse pure-start events (no summary written)
+    if (oldJob.jobType === 'fara') {
+      await undoStart(oldJob.containerNumber, oldJob.company, oldJob.where);
+    } else if (oldJob.jobType === 'skipta') {
+      const tek = oldJob.containerNumberTekinn;
+      const set = oldJob.containerNumberSettur;
+      if (set && set !== 'Nei' && set !== tek) {
+        await undoStart(set, oldJob.company, oldJob.where);
+      }
+    }
+  }
+
+  // Fields that affect rental records on the gámur side
+  function rentalFieldsDiffer(oldJob, newJob) {
+    const keys = ['jobType', 'containerNumber', 'containerNumberTekinn', 'containerNumberSettur', 'company', 'where', 'material', 'materialLabel'];
+    return keys.some(k => (oldJob[k] || '') !== (newJob[k] || ''));
+  }
+
   async function doSend(data) {
     const isEdit = !!_editingJobId;
     const id = _editingJobId || Date.now().toString();
@@ -1786,12 +1841,36 @@
     const status = isEdit ? (existing?.status || _editingJobStatus || 'new') : 'new';
     // When editing: merge new form fields onto existing job so things like
     // containerNumber, archivedAt, completionNote, delay info stay intact
-    const job = isEdit && existing
+    let job = isEdit && existing
       ? { ...existing, ...data, id, status, createdAt: existing.createdAt || new Date().toISOString() }
       : { id, ...data, status, createdAt: new Date().toISOString() };
+
+    // If editing a Lokid gám job and rental-relevant fields changed,
+    // ask the director if útleigu records should also update.
+    let rerunRental = false;
+    if (isEdit && existing && existing.status === 'done'
+        && GAM_JOB_TYPES.includes(existing.jobType)
+        && rentalFieldsDiffer(existing, job)) {
+      const ok = confirm('Þú breyttir reit sem hefur áhrif á útleigu (gámanúmer, fyrirtæki, staðsetning, efni eða tegund).\n\nSkal uppfæra útleiguskráninguna líka?\n\nJá → endurreikna; gamla útleigan dregst til baka og ný er reiknuð.\nNei → blaðið breytist en stöð gámsins helst óbreytt.');
+      if (ok) rerunRental = true;
+    }
+
     _editingJobId = null; _editingJobStatus = null;
+
+    if (rerunRental) {
+      await reverseRentalLogic(existing);
+      // Strip old rental data, then re-apply
+      delete job.rentalSummaries;
+      delete job.rentalWarnings;
+      const result = await applyContainerRentalLogic(job);
+      if (result) {
+        if (result.summaries.length) job.rentalSummaries = result.summaries;
+        if (result.warnings.length) job.rentalWarnings = result.warnings;
+      }
+    }
+
     await fsSetJob(job);
-    showToast(isEdit ? 'Verkefni uppfært!' : 'Verkefni sent!');
+    showToast(isEdit ? (rerunRental ? 'Verkefni og útleiga uppfærð!' : 'Verkefni uppfært!') : 'Verkefni sent!');
     clearForm();
     window.switchTab('jobs', document.querySelector('.tab-btn'));
   }
@@ -2153,8 +2232,17 @@
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
+    const hasRental = (job.rentalSummaries && job.rentalSummaries.length > 0)
+                    || (GAM_JOB_TYPES.includes(job.jobType) && (job.containerNumber || job.containerNumberTekinn || job.containerNumberSettur));
+    if (hasRental && GAM_JOB_TYPES.includes(job.jobType)) {
+      const ok = confirm('Þú ert að opna verkefni sem var tengt útleigu.\n\nSkal núllstilla útleiguskráninguna líka?\n\nJá → staðan á gámnum dregst til baka eins og hún var áður.\nNei → blaðið opnast en stöð gámsins helst eins og hún er núna.');
+      if (ok) {
+        await reverseRentalLogic(job);
+      }
+    }
     const updated = { ...job, status: 'new' };
     delete updated.containerNumber; delete updated.containerNumberTekinn; delete updated.containerNumberSettur;
+    delete updated.rentalSummaries; delete updated.rentalWarnings;
     await fsSetJob(updated);
     showToast('Verkefni opnað aftur');
   };
