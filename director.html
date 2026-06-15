@@ -70,6 +70,35 @@
     .complete-note-arrow { transition: transform 0.2s; }
     .complete-note-toggle[open] .complete-note-arrow { transform: rotate(180deg); }
     .complete-form-actions { display: flex; gap: 0.5rem; margin-top: 0.85rem; justify-content: flex-end; }
+    /* ── Í ÚTLEIGU TAB ──────────────────────────────────────────────────── */
+    .utleiga-toolbar { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+    .utleiga-summary { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.85rem; font-weight: 600; }
+    .utleiga-summary strong { color: var(--ink); }
+    .container-card { background: var(--white); border-radius: 9px; padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-left: 4px solid var(--mid); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .container-card.status-heima { border-left-color: var(--green); opacity: 0.85; }
+    .container-card.status-utleigu { border-left-color: var(--rust); }
+    .container-card.status-unknown { border-left-color: var(--yellow); }
+    .container-row1 { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+    .container-num { font-size: 1.05rem; font-weight: 900; color: var(--ink); letter-spacing: -0.01em; }
+    .container-size-tag { font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px; background: var(--mid); color: var(--ink); text-transform: uppercase; letter-spacing: 0.05em; }
+    .container-sergerd-tag { font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px; background: #e8c84a; color: #3a2e00; text-transform: uppercase; letter-spacing: 0.05em; }
+    .container-status-tag { font-size: 0.65rem; font-weight: 700; padding: 0.18rem 0.55rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.06em; margin-left: auto; }
+    .container-status-heima { background: #eaf4ec; color: var(--green); }
+    .container-status-utleigu { background: #fdecea; color: var(--rust); }
+    [data-theme="dark"] .container-status-heima { background: #2a3a2e; color: #80c090; }
+    [data-theme="dark"] .container-status-utleigu { background: #4a2a28; color: #ea8a82; }
+    .container-row2 { font-size: 0.85rem; color: var(--muted); margin-top: 0.35rem; line-height: 1.55; }
+    .container-row2 strong { color: var(--ink); font-weight: 700; }
+    .container-row2 .container-efni { color: var(--rust); font-weight: 700; }
+    .container-warning { background: #fef4e5; border-left: 3px solid var(--yellow); padding: 0.35rem 0.6rem; font-size: 0.78rem; color: #8a5a2b; margin-top: 0.4rem; border-radius: 3px; }
+    [data-theme="dark"] .container-warning { background: #4a3a2a; color: #d4a878; }
+    .container-actions { display: flex; gap: 0.4rem; margin-top: 0.55rem; flex-wrap: wrap; }
+    /* Container modal */
+    .container-modal-body { display: flex; flex-direction: column; gap: 0.85rem; }
+    .container-modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .container-modal-body .form-group { margin-bottom: 0; }
+    .container-status-pick { display: flex; gap: 0.5rem; }
+    .container-status-pick .option-btn { flex: 1; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
 
     #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--dark-surface); }
@@ -304,6 +333,7 @@
       <button class="tab-btn" onclick="switchTab('new-job', this)">+ Nýtt</button>
       <button class="tab-btn" onclick="switchTab('drafts', this)">Vistuð</button>
       <button class="tab-btn" onclick="switchTab('geymsla', this)">🗄 Geymsla</button>
+      <button class="tab-btn" id="utleiga-tab-btn" onclick="switchTab('utleiga', this)">🚛 Í útleigu</button>
       <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Beiðnir</button>
     </div>
 
@@ -453,6 +483,21 @@
     </div>
 
     <!-- REQUESTS -->
+    <!-- Í ÚTLEIGU -->
+    <div class="tab-panel" id="tab-utleiga">
+      <div class="utleiga-toolbar">
+        <div class="geymsla-search-wrap" style="flex:1;margin:0;">
+          <span class="geymsla-search-icon">🔍</span>
+          <input type="text" id="utleiga-search" placeholder="Leita eftir númeri, fyrirtæki, staðsetningu eða efni..." oninput="renderUtleiga()" />
+        </div>
+        <button class="btn btn-rust btn-sm" onclick="openContainerForm()">+ Bæta við gámi</button>
+        <button class="btn btn-outline btn-sm" onclick="openContainerImport()">📥 Flytja inn úr Excel</button>
+      </div>
+      <div id="utleiga-summary" class="utleiga-summary"></div>
+      <div id="utleiga-list"></div>
+    </div>
+
+    <!-- BEIÐNIR -->
     <div class="tab-panel" id="tab-requests">
       <div class="section-heading">Hlekk fyrir bílstjóra</div>
       <div class="form-card" style="margin-bottom:1rem;">
@@ -486,6 +531,80 @@
   </div>
 </div>
 
+<!-- Container add/edit modal -->
+<div class="modal-overlay" id="container-modal" style="display:none;" onclick="if(event.target===this)closeContainerForm()">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-title" id="container-modal-title">+ Bæta við gámi</div>
+    <div class="container-modal-body">
+      <div class="form-group">
+        <label>Auðkenni (númer eða nafn)</label>
+        <input type="text" id="cm-id" placeholder="t.d. 175 eða FLETI" />
+      </div>
+      <div class="form-group">
+        <label>Stærð</label>
+        <div class="option-group" id="cm-size-group">
+          <button type="button" class="option-btn" onclick="cmPick('cm-size-group', this, '15m3')">15 m³</button>
+          <button type="button" class="option-btn" onclick="cmPick('cm-size-group', this, 'litill')">Lítill</button>
+          <button type="button" class="option-btn" onclick="cmPick('cm-size-group', this, 'stor')">Stór</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Sérgerð (valkvætt)</label>
+        <div class="option-group" id="cm-sergerd-group">
+          <button type="button" class="option-btn" onclick="cmPick('cm-sergerd-group', this, '')">Engin</button>
+          <button type="button" class="option-btn" onclick="cmPick('cm-sergerd-group', this, 'timburgamur')">Timburgámur</button>
+          <button type="button" class="option-btn" onclick="cmPick('cm-sergerd-group', this, 'lokadur')">Lokaður</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Staða</label>
+        <div class="container-status-pick" id="cm-status-group">
+          <button type="button" class="option-btn" onclick="cmPickStatus(this, 'heima')">🏠 Heima</button>
+          <button type="button" class="option-btn" onclick="cmPickStatus(this, 'utleigu')">🚛 Í útleigu</button>
+        </div>
+      </div>
+      <div id="cm-utleigu-fields" style="display:none;">
+        <div class="form-group">
+          <label>Fyrirtæki</label>
+          <input type="text" id="cm-company" placeholder="t.d. Marel" />
+        </div>
+        <div class="container-modal-row">
+          <div class="form-group">
+            <label>Staðsetning</label>
+            <input type="text" id="cm-where" placeholder="t.d. Garðabær" />
+          </div>
+          <div class="form-group">
+            <label>Settur þann</label>
+            <input type="date" id="cm-placed" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Efni</label>
+          <div class="option-group" id="cm-efni-group">
+            <button type="button" class="option-btn" onclick="cmPick('cm-efni-group', this, '')">Ekki skráð</button>
+            <button type="button" class="option-btn" onclick="cmPick('cm-efni-group', this, 'jarn')">Járn</button>
+            <button type="button" class="option-btn" onclick="cmPick('cm-efni-group', this, 'timbur')">Timbur</button>
+            <button type="button" class="option-btn" onclick="cmPick('cm-efni-group', this, 'annad')">Annað</button>
+          </div>
+          <div class="other-input" id="cm-efni-other-wrap"><input type="text" id="cm-efni-other" placeholder="Lýstu efninu..." /></div>
+        </div>
+        <div class="form-group">
+          <label>Tengill (valkvætt)</label>
+          <input type="text" id="cm-contact" placeholder="t.d. Gunnar Garðarsson" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Athugasemd (valkvætt)</label>
+        <textarea id="cm-note" rows="2" placeholder="Annað sem skiptir máli..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeContainerForm()">Hætta við</button>
+      <button class="btn btn-rust" onclick="saveContainer()">Vista</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
   import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
@@ -503,7 +622,7 @@
   const db = getFirestore(fireApp);
 
   // ── LOCAL CACHE (kept in sync by onSnapshot) ───────────────────────────────
-  let appData = { jobs: [], driverRequests: [], approvedDrivers: [] };
+  let appData = { jobs: [], driverRequests: [], approvedDrivers: [], containers: [] };
   let _loggedIn = false;
 
   function getData() { return appData; }
@@ -519,6 +638,8 @@
   async function fsDeleteRequest(id) { await deleteDoc(doc(db,'driverRequests',id)); }
   async function fsSetDriver(dr)     { const {id,...d}=dr; await setDoc(doc(db,'approvedDrivers',id), cleanObj(d)); }
   async function fsDeleteDriver(id)  { await deleteDoc(doc(db,'approvedDrivers',id)); }
+  async function fsSetContainer(c)   { const {id,...d}=c; await setDoc(doc(db,'containers',id), cleanObj(d)); }
+  async function fsDeleteContainer(id) { await deleteDoc(doc(db,'containers',id)); }
 
   // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
   onSnapshot(collection(db,'jobs'), snap => {
@@ -543,6 +664,13 @@
     if (!_loggedIn) return;
     const active = document.querySelector('.tab-panel.active');
     if (active && active.id==='tab-requests') renderRequests();
+  });
+  onSnapshot(collection(db,'containers'), snap => {
+    appData.containers = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (!_loggedIn) return;
+    const active = document.querySelector('.tab-panel.active');
+    if (active && active.id==='tab-utleiga') renderUtleiga();
+    updateUtleigaCount();
   });
 
   const DIRECTOR_PASSWORD = 'fura2024';
@@ -727,6 +855,7 @@
     if (name === 'new-job') renderDriverButtons();
     if (name === 'requests') renderRequests();
     if (name === 'geymsla') window.clearGeymslaFilters();
+    if (name === 'utleiga') renderUtleiga();
   };
 
   function updateRequestsBadge() {
@@ -737,6 +866,284 @@
     if (count > 0) btn.innerHTML = `Beiðnir <span class="badge">${count}</span>`;
     else btn.textContent = 'Beiðnir';
   }
+
+  // ── Í ÚTLEIGU ─────────────────────────────────────────────────────────────
+
+  const sizeLabels = { '15m3': '15 m³', 'litill': 'Lítill', 'stor': 'Stór' };
+  const sergerdLabels = { 'timburgamur': 'Timburgámur', 'lokadur': 'Lokaður' };
+  const efniLabels = { 'jarn': 'Járn', 'timbur': 'Timbur', 'annad': 'Annað' };
+
+  function fmtIcelandicDate(iso) {
+    if (!iso) return '—';
+    const [y, m, d] = iso.split('-');
+    return `${parseInt(d,10)}.${parseInt(m,10)}.${y}`;
+  }
+  function daysSince(iso) {
+    if (!iso) return null;
+    const then = new Date(iso + 'T00:00:00');
+    const now = new Date();
+    return Math.max(0, Math.floor((now - then) / 86400000));
+  }
+  function daysLabel(n) {
+    if (n == null) return '';
+    if (n === 0) return 'í dag';
+    if (n === 1) return '1 dagur';
+    if (n < 365) return n + ' dagar';
+    const years = Math.floor(n / 365);
+    const remDays = n - years * 365;
+    const months = Math.floor(remDays / 30);
+    let out = years + (years === 1 ? ' ár' : ' ár');
+    if (months > 0) out += ', ' + months + ' mán';
+    return out + ' (' + n + ' dagar)';
+  }
+
+  function sortContainers(list) {
+    return [...list].sort((a, b) => {
+      const aNum = parseFloat(a.id);
+      const bNum = parseFloat(b.id);
+      const aIsNum = !isNaN(aNum);
+      const bIsNum = !isNaN(bNum);
+      if (aIsNum && bIsNum) {
+        if (aNum !== bNum) return aNum - bNum;
+        // same number → small before big
+        const order = { '15m3': 0, 'litill': 1, 'stor': 2 };
+        return (order[a.size] || 99) - (order[b.size] || 99);
+      }
+      if (aIsNum) return -1;
+      if (bIsNum) return 1;
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  function updateUtleigaCount() {
+    const btn = document.getElementById('utleiga-tab-btn');
+    if (!btn) return;
+    const out = appData.containers.filter(c => c.status === 'utleigu').length;
+    if (out > 0) btn.innerHTML = `🚛 Í útleigu <span class="badge" style="background:var(--rust);">${out}</span>`;
+    else btn.innerHTML = '🚛 Í útleigu';
+  }
+
+  function efniDisplay(c) {
+    if (!c.efni) return null;
+    if (c.efni === 'annad') return c.efniLabel || 'Annað';
+    return efniLabels[c.efni] || c.efni;
+  }
+
+  function renderUtleiga() {
+    const listEl = document.getElementById('utleiga-list');
+    const sumEl = document.getElementById('utleiga-summary');
+    if (!listEl) return;
+    const q = (document.getElementById('utleiga-search')?.value || '').trim().toLowerCase();
+    const all = appData.containers;
+    const total = all.length;
+    const utleigu = all.filter(c => c.status === 'utleigu').length;
+    const heima = all.filter(c => c.status === 'heima').length;
+    sumEl.innerHTML = `<strong>${total}</strong> gámar alls · <strong style="color:var(--rust);">${utleigu}</strong> í útleigu · <strong style="color:var(--green);">${heima}</strong> heima`;
+
+    let list = sortContainers(all);
+    if (q) {
+      list = list.filter(c => {
+        const blob = [c.id, c.company, c.where, c.note, c.contact, efniDisplay(c)].filter(Boolean).join(' ').toLowerCase();
+        return blob.includes(q);
+      });
+    }
+
+    if (list.length === 0) {
+      listEl.innerHTML = total === 0
+        ? `<div class="empty-state"><div class="icon">🚛</div>Engir gámar í kerfinu enn<br><small style="font-size:0.8rem;margin-top:0.5rem;display:block;">Smelltu á <strong>+ Bæta við gámi</strong> til að byrja</small></div>`
+        : `<div class="empty-state"><div class="icon">🔍</div>Engir gámar fundust</div>`;
+      return;
+    }
+
+    listEl.innerHTML = list.map(containerCard).join('');
+  }
+
+  function containerCard(c) {
+    const isUtleigu = c.status === 'utleigu';
+    const sizeTag = c.size ? `<span class="container-size-tag">${sizeLabels[c.size] || c.size}</span>` : '';
+    const sergerdTag = c.sergerd ? `<span class="container-sergerd-tag">${sergerdLabels[c.sergerd] || c.sergerd}</span>` : '';
+    const statusTag = isUtleigu
+      ? `<span class="container-status-tag container-status-utleigu">Í útleigu</span>`
+      : `<span class="container-status-tag container-status-heima">Heima</span>`;
+    const efni = efniDisplay(c);
+    const days = isUtleigu ? daysSince(c.placedAt) : null;
+    const daysStr = days != null ? daysLabel(days) : '';
+    const placedStr = c.placedAt ? fmtIcelandicDate(c.placedAt) : '';
+
+    let row2 = '';
+    if (isUtleigu) {
+      const isUnknown = !c.company && !c.where;
+      const where = c.company && c.where ? `${c.company} — ${c.where}` : (c.company || c.where || '(óþekkt)');
+      row2 = `
+        <div class="container-row2">
+          <div>📍 <strong>${escHtml(where)}</strong></div>
+          ${c.contact ? `<div>👤 ${escHtml(c.contact)}</div>` : ''}
+          ${placedStr ? `<div>🗓 Settur ${placedStr} · ⏱ ${daysStr}</div>` : ''}
+          ${efni ? `<div>♻ <span class="container-efni">${escHtml(efni)}</span></div>` : ''}
+          ${c.note ? `<div style="margin-top:0.25rem;">📝 ${escHtml(c.note)}</div>` : ''}
+          ${isUnknown ? `<div class="container-warning">⚠ Óþekkt staðsetning — láttu vita þegar þú finnur hvar gámurinn er</div>` : ''}
+        </div>`;
+    } else {
+      row2 = `
+        <div class="container-row2">
+          ${placedStr ? `<div>Síðast skráð: ${placedStr}</div>` : ''}
+          ${c.note ? `<div style="margin-top:0.25rem;">📝 ${escHtml(c.note)}</div>` : ''}
+        </div>`;
+    }
+
+    const cardClass = isUtleigu ? 'status-utleigu' : 'status-heima';
+    return `
+      <div class="container-card ${cardClass}">
+        <div class="container-row1">
+          <span class="container-num">#${escHtml(c.id)}</span>
+          ${sizeTag}
+          ${sergerdTag}
+          ${statusTag}
+        </div>
+        ${row2}
+        <div class="container-actions">
+          <button class="btn btn-outline btn-sm" onclick="editContainer('${escHtml(c.id).replace(/'/g, "\\'")}')">Breyta</button>
+          ${isUtleigu ? `<button class="btn btn-green btn-sm" onclick="markContainerHome('${escHtml(c.id).replace(/'/g, "\\'")}')">✓ Sóttur (heim)</button>` : ''}
+          <button class="btn btn-red btn-sm" onclick="deleteContainer('${escHtml(c.id).replace(/'/g, "\\'")}')">Eyða</button>
+        </div>
+      </div>`;
+  }
+
+  // ── CONTAINER ADD/EDIT MODAL ──────────────────────────────────────────────
+
+  let _editingContainerId = null;
+
+  window.cmPick = function(groupId, btn, value) {
+    document.querySelectorAll(`#${groupId} .option-btn`).forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    btn.dataset.value = value;
+    if (groupId === 'cm-efni-group') {
+      document.getElementById('cm-efni-other-wrap').style.display = value === 'annad' ? 'block' : 'none';
+    }
+  };
+  window.cmPickStatus = function(btn, value) {
+    document.querySelectorAll('#cm-status-group .option-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    btn.dataset.value = value;
+    document.getElementById('cm-utleigu-fields').style.display = value === 'utleigu' ? 'block' : 'none';
+  };
+  function cmGetSelected(groupId) {
+    const b = document.querySelector(`#${groupId} .option-btn.selected`);
+    return b ? b.dataset.value : '';
+  }
+  function cmResetForm() {
+    ['cm-id','cm-company','cm-where','cm-contact','cm-note','cm-efni-other'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('cm-placed').value = todayISO();
+    document.querySelectorAll('#container-modal .option-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('cm-utleigu-fields').style.display = 'none';
+    document.getElementById('cm-efni-other-wrap').style.display = 'none';
+  }
+
+  window.openContainerForm = function() {
+    _editingContainerId = null;
+    cmResetForm();
+    document.getElementById('container-modal-title').textContent = '+ Bæta við gámi';
+    document.getElementById('cm-id').disabled = false;
+    // default selections: Lítill + Heima
+    const litillBtn = [...document.querySelectorAll('#cm-size-group .option-btn')].find(b => b.textContent === 'Lítill');
+    if (litillBtn) cmPick('cm-size-group', litillBtn, 'litill');
+    const heimaBtn = document.querySelector('#cm-status-group .option-btn');
+    if (heimaBtn) cmPickStatus(heimaBtn, 'heima');
+    document.getElementById('container-modal').style.display = 'flex';
+  };
+
+  window.editContainer = function(id) {
+    const c = appData.containers.find(x => x.id === id);
+    if (!c) return;
+    _editingContainerId = id;
+    cmResetForm();
+    document.getElementById('container-modal-title').textContent = 'Breyta gámi #' + id;
+    document.getElementById('cm-id').value = id;
+    document.getElementById('cm-id').disabled = true;
+    if (c.size) {
+      const btn = [...document.querySelectorAll('#cm-size-group .option-btn')].find(b => (sizeLabels[c.size] || c.size) === b.textContent);
+      if (btn) cmPick('cm-size-group', btn, c.size);
+    }
+    if (c.sergerd) {
+      const btn = [...document.querySelectorAll('#cm-sergerd-group .option-btn')].find(b => (sergerdLabels[c.sergerd] || c.sergerd) === b.textContent);
+      if (btn) cmPick('cm-sergerd-group', btn, c.sergerd);
+    } else {
+      const btn = document.querySelector('#cm-sergerd-group .option-btn');
+      if (btn) cmPick('cm-sergerd-group', btn, '');
+    }
+    const statusBtns = document.querySelectorAll('#cm-status-group .option-btn');
+    const sBtn = c.status === 'utleigu' ? statusBtns[1] : statusBtns[0];
+    cmPickStatus(sBtn, c.status || 'heima');
+    document.getElementById('cm-company').value = c.company || '';
+    document.getElementById('cm-where').value = c.where || '';
+    document.getElementById('cm-contact').value = c.contact || '';
+    document.getElementById('cm-placed').value = c.placedAt || todayISO();
+    document.getElementById('cm-note').value = c.note || '';
+    if (c.efni) {
+      const map = { jarn: 'Járn', timbur: 'Timbur', annad: 'Annað' };
+      const btn = [...document.querySelectorAll('#cm-efni-group .option-btn')].find(b => map[c.efni] === b.textContent);
+      if (btn) cmPick('cm-efni-group', btn, c.efni);
+      if (c.efni === 'annad') document.getElementById('cm-efni-other').value = c.efniLabel || '';
+    }
+    document.getElementById('container-modal').style.display = 'flex';
+  };
+
+  window.closeContainerForm = function() {
+    document.getElementById('container-modal').style.display = 'none';
+    _editingContainerId = null;
+  };
+
+  window.saveContainer = async function() {
+    const idRaw = document.getElementById('cm-id').value.trim();
+    if (!idRaw) { showToast('Sláðu inn auðkenni'); return; }
+    const size = cmGetSelected('cm-size-group');
+    if (!size) { showToast('Veldu stærð'); return; }
+    const status = cmGetSelected('cm-status-group');
+    if (!status) { showToast('Veldu stöðu'); return; }
+    const sergerd = cmGetSelected('cm-sergerd-group') || '';
+    const efni = cmGetSelected('cm-efni-group') || '';
+    const efniLabel = efni === 'annad' ? document.getElementById('cm-efni-other').value.trim() : '';
+    const c = {
+      id: idRaw,
+      size,
+      sergerd,
+      status,
+      company: status === 'utleigu' ? document.getElementById('cm-company').value.trim() : '',
+      where: status === 'utleigu' ? document.getElementById('cm-where').value.trim() : '',
+      contact: status === 'utleigu' ? document.getElementById('cm-contact').value.trim() : '',
+      placedAt: status === 'utleigu' ? document.getElementById('cm-placed').value : null,
+      efni: status === 'utleigu' ? efni : '',
+      efniLabel: status === 'utleigu' ? efniLabel : '',
+      note: document.getElementById('cm-note').value.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    if (!_editingContainerId && !c.createdAt) c.createdAt = new Date().toISOString();
+    if (!_editingContainerId && appData.containers.some(x => x.id === idRaw)) {
+      if (!confirm(`Gámur með auðkennið "${idRaw}" er þegar til. Skrifa yfir?`)) return;
+    }
+    await fsSetContainer(c);
+    showToast(_editingContainerId ? 'Gámur uppfærður ✓' : 'Gámur skráður ✓');
+    closeContainerForm();
+  };
+
+  window.markContainerHome = async function(id) {
+    const c = appData.containers.find(x => x.id === id);
+    if (!c) return;
+    if (!confirm(`Skrá gám #${id} sem heima núna?`)) return;
+    const updated = { ...c, status: 'heima', company: '', where: '', contact: '', placedAt: null, efni: '', efniLabel: '', updatedAt: new Date().toISOString() };
+    await fsSetContainer(updated);
+    showToast('Gámur skráður heima ✓');
+  };
+
+  window.deleteContainer = async function(id) {
+    if (!confirm(`Eyða gámi #${id} úr kerfinu? Þetta er ekki hægt að afturkalla.`)) return;
+    await fsDeleteContainer(id);
+    showToast('Gámur fjarlægður');
+  };
+
+  window.openContainerImport = function() {
+    showToast('Innflutningur úr Excel kemur næst — gef mér eina mínútu');
+  };
 
   // ── DRIVER BUTTONS ─────────────────────────────────────────────────────────
 
