@@ -686,8 +686,14 @@
   async function fsDeleteRequest(id) { await deleteDoc(doc(db,'driverRequests',id)); }
   async function fsSetDriver(dr)     { const {id,...d}=dr; await setDoc(doc(db,'approvedDrivers',id), cleanObj(d)); }
   async function fsDeleteDriver(id)  { await deleteDoc(doc(db,'approvedDrivers',id)); }
-  async function fsSetContainer(c)   { const {id,...d}=c; await setDoc(doc(db,'containers',id), cleanObj(d)); }
-  async function fsDeleteContainer(id) { await deleteDoc(doc(db,'containers',id)); }
+  function makeContainerKey(displayId, size) { return `${displayId}__${size || 'litill'}`; }
+  async function fsSetContainer(c) {
+    const key = c._key || makeContainerKey(c.id, c.size);
+    const {_key, id, ...d} = c;
+    d.id = id;
+    await setDoc(doc(db,'containers', key), cleanObj(d));
+  }
+  async function fsDeleteContainerByKey(key) { await deleteDoc(doc(db,'containers', key)); }
 
   // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
   onSnapshot(collection(db,'jobs'), snap => {
@@ -714,7 +720,13 @@
     if (active && active.id==='tab-requests') renderRequests();
   });
   onSnapshot(collection(db,'containers'), snap => {
-    appData.containers = snap.docs.map(d => ({id:d.id,...d.data()}));
+    appData.containers = snap.docs.map(d => {
+      const data = d.data();
+      // Backwards-compat: old docs had display id == docId. New docs have id in payload.
+      const displayId = data.id || d.id.split('__')[0];
+      const size = data.size || (d.id.includes('__') ? d.id.split('__')[1] : 'litill');
+      return { ...data, _key: d.id, id: displayId, size };
+    });
     if (!_loggedIn) return;
     const active = document.querySelector('.tab-panel.active');
     if (active && active.id==='tab-utleiga') renderUtleiga();
@@ -1050,8 +1062,8 @@
         </div>
         ${row2}
         <div class="container-actions">
-          <button class="btn btn-outline btn-sm" onclick="editContainer('${escHtml(c.id).replace(/'/g, "\\'")}')">Breyta</button>
-          <button class="btn btn-red btn-sm" onclick="deleteContainer('${escHtml(c.id).replace(/'/g, "\\'")}')">Eyða</button>
+          <button class="btn btn-outline btn-sm" onclick="editContainer('${escHtml(c._key).replace(/'/g, "\\'")}')">Breyta</button>
+          <button class="btn btn-red btn-sm" onclick="deleteContainer('${escHtml(c._key).replace(/'/g, "\\'")}')">Eyða</button>
         </div>
       </div>`;
   }
@@ -1099,13 +1111,13 @@
     document.getElementById('container-modal').style.display = 'flex';
   };
 
-  window.editContainer = function(id) {
-    const c = appData.containers.find(x => x.id === id);
+  window.editContainer = function(key) {
+    const c = appData.containers.find(x => x._key === key);
     if (!c) return;
-    _editingContainerId = id;
+    _editingContainerId = key;
     cmResetForm();
-    document.getElementById('container-modal-title').textContent = 'Breyta gámi #' + id;
-    document.getElementById('cm-id').value = id;
+    document.getElementById('container-modal-title').textContent = 'Breyta gámi #' + c.id;
+    document.getElementById('cm-id').value = c.id;
     document.getElementById('cm-id').disabled = true;
     if (c.size) {
       const btn = [...document.querySelectorAll('#cm-size-group .option-btn')].find(b => (sizeLabels[c.size] || c.size) === b.textContent);
@@ -1150,6 +1162,7 @@
     const sergerd = cmGetSelected('cm-sergerd-group') || '';
     const efni = cmGetSelected('cm-efni-group') || '';
     const efniLabel = efni === 'annad' ? document.getElementById('cm-efni-other').value.trim() : '';
+    const newKey = makeContainerKey(idRaw, size);
     const c = {
       id: idRaw,
       size,
@@ -1162,29 +1175,31 @@
       efni: status === 'utleigu' ? efni : '',
       efniLabel: status === 'utleigu' ? efniLabel : '',
       note: document.getElementById('cm-note').value.trim(),
+      _key: newKey,
       updatedAt: new Date().toISOString()
     };
-    if (!_editingContainerId && !c.createdAt) c.createdAt = new Date().toISOString();
-    if (!_editingContainerId && appData.containers.some(x => x.id === idRaw)) {
-      if (!confirm(`Gámur með auðkennið "${idRaw}" er þegar til. Skrifa yfir?`)) return;
+    if (!_editingContainerId) c.createdAt = new Date().toISOString();
+    // Collision check: only against gámar with the SAME (id + size) combination
+    const collisionKey = _editingContainerId || newKey;
+    if (appData.containers.some(x => x._key === newKey && x._key !== collisionKey)) {
+      if (!confirm(`Gámur með auðkennið "${idRaw}" og stærðina "${sizeLabels[size]}" er þegar til. Skrifa yfir?`)) return;
+    }
+    // If editing and size changed, delete the old doc (composite key changed)
+    if (_editingContainerId && _editingContainerId !== newKey) {
+      const existing = appData.containers.find(x => x._key === _editingContainerId);
+      if (existing) c.createdAt = existing.createdAt || c.createdAt;
+      await fsDeleteContainerByKey(_editingContainerId);
     }
     await fsSetContainer(c);
     showToast(_editingContainerId ? 'Gámur uppfærður ✓' : 'Gámur skráður ✓');
     closeContainerForm();
   };
 
-  window.markContainerHome = async function(id) {
-    const c = appData.containers.find(x => x.id === id);
+  window.deleteContainer = async function(key) {
+    const c = appData.containers.find(x => x._key === key);
     if (!c) return;
-    if (!confirm(`Skrá gám #${id} sem heima núna?`)) return;
-    const updated = { ...c, status: 'heima', company: '', where: '', contact: '', placedAt: null, efni: '', efniLabel: '', updatedAt: new Date().toISOString() };
-    await fsSetContainer(updated);
-    showToast('Gámur skráður heima ✓');
-  };
-
-  window.deleteContainer = async function(id) {
-    if (!confirm(`Eyða gámi #${id} úr kerfinu? Þetta er ekki hægt að afturkalla.`)) return;
-    await fsDeleteContainer(id);
+    if (!confirm(`Eyða gámi #${c.id} (${sizeLabels[c.size] || c.size}) úr kerfinu? Þetta er ekki hægt að afturkalla.`)) return;
+    await fsDeleteContainerByKey(key);
     showToast('Gámur fjarlægður');
   };
 
@@ -1470,9 +1485,9 @@
   window.commitContainerImport = async function() {
     const rowsToSave = _ciRows.filter(r => !r.skip && r.id);
     if (rowsToSave.length === 0) { showToast('Ekkert til að vista'); return; }
-    const existing = new Set(appData.containers.map(c => c.id));
-    const overlap = rowsToSave.filter(r => existing.has(r.id));
-    if (overlap.length > 0 && !confirm(`${overlap.length} gámar eru þegar til (${overlap.slice(0, 5).map(r => '#' + r.id).join(', ')}${overlap.length > 5 ? '...' : ''}). Skrifa yfir?`)) return;
+    const existing = new Set(appData.containers.map(c => c._key));
+    const overlap = rowsToSave.filter(r => existing.has(makeContainerKey(r.id, r.size)));
+    if (overlap.length > 0 && !confirm(`${overlap.length} gámar eru þegar til (${overlap.slice(0, 5).map(r => '#' + r.id + ' ' + (sizeLabels[r.size] || r.size)).join(', ')}${overlap.length > 5 ? '...' : ''}). Skrifa yfir?`)) return;
 
     const btn = document.getElementById('ci-save-btn');
     btn.disabled = true;
@@ -1497,7 +1512,7 @@
           importedAt: now,
           updatedAt: now
         };
-        if (!existing.has(r.id)) c.createdAt = now;
+        if (!existing.has(makeContainerKey(r.id, r.size))) c.createdAt = now;
         await fsSetContainer(c);
         saved++;
         if (saved % 5 === 0) btn.textContent = `Vistar... ${saved}/${rowsToSave.length}`;
@@ -1844,16 +1859,48 @@
     const summaries = [];
     const warnings = [];
 
-    const findOrCreate = (num) => {
-      if (!num || num === 'Nei') return null;
-      const existing = appData.containers.find(c => c.id === num);
-      if (existing) return existing;
-      return {
-        id: num, size: 'litill', sergerd: '', status: 'heima',
-        company: '', where: '', contact: '', placedAt: null,
-        efni: '', efniLabel: '', note: '',
-        autoCreated: true, createdAt: now, updatedAt: now
-      };
+    const findCandidates = (num) => {
+      if (!num || num === 'Nei') return [];
+      return appData.containers.filter(c => c.id === num);
+    };
+
+    // Pick the best match. For 'pickup' (end rental): prefer one currently úti
+    // at matching company/where; else first úti; else first heima.
+    // For 'placement' (start rental): prefer one currently heima; else first.
+    const pickContainer = (matches, intent) => {
+      if (matches.length === 0) return null;
+      if (matches.length === 1) return matches[0];
+      const sameLoc = matches.find(c => c.company === job.company && c.where === job.where);
+      if (sameLoc) return sameLoc;
+      if (intent === 'end') {
+        const utiOne = matches.find(c => c.status === 'utleigu');
+        return utiOne || matches[0];
+      } else {
+        const heimaOne = matches.find(c => c.status === 'heima');
+        return heimaOne || matches[0];
+      }
+    };
+
+    const findOrCreateForStart = (num) => {
+      const matches = findCandidates(num);
+      if (matches.length === 0) {
+        return {
+          id: num, size: 'litill', sergerd: '', status: 'heima',
+          company: '', where: '', contact: '', placedAt: null,
+          efni: '', efniLabel: '', note: '',
+          autoCreated: true, createdAt: now, updatedAt: now
+        };
+      }
+      const picked = pickContainer(matches, 'start');
+      if (matches.length > 1) warnings.push(`Margir gámar með númerið ${num} fundust — uppfærði ${sizeLabels[picked.size] || picked.size}`);
+      return picked;
+    };
+    const findOrCreateForEnd = (num) => {
+      const matches = findCandidates(num);
+      if (matches.length === 0) return null; // signal "unknown"
+      const picked = pickContainer(matches, 'end');
+      if (matches.length > 1) warnings.push(`Margir gámar með númerið ${num} fundust — uppfærði ${sizeLabels[picked.size] || picked.size}`);
+      return picked;
     };
 
     const startRental = (c) => ({
@@ -1879,26 +1926,34 @@
       return { updated, summary };
     };
 
+    const num = job.containerNumber;
     switch (job.jobType) {
       case 'fara': { // Vantar gám: clock starts
-        const c = findOrCreate(job.containerNumber);
-        if (c) await fsSetContainer(startRental(c));
+        if (num && num !== 'Nei') {
+          const c = findOrCreateForStart(num);
+          await fsSetContainer(startRental(c));
+        }
         break;
       }
       case 'sekja': { // Taka gám: clock stops
-        const c = findOrCreate(job.containerNumber);
-        if (c) {
-          const wasAutoCreated = !appData.containers.find(x => x.id === c.id);
-          const { updated, summary } = endRental(c);
-          await fsSetContainer(updated);
-          if (summary) summaries.push(summary);
-          else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður${wasAutoCreated ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+        if (num && num !== 'Nei') {
+          const c = findOrCreateForEnd(num);
+          if (!c) {
+            warnings.push(`Gámur #${num} var ekki skráður sem útleigður — bætti í kerfið sjálfkrafa`);
+            const newC = findOrCreateForStart(num);
+            await fsSetContainer({ ...newC, updatedAt: now });
+          } else {
+            const { updated, summary } = endRental(c);
+            await fsSetContainer(updated);
+            if (summary) summaries.push(summary);
+            else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður`);
+          }
         }
         break;
       }
       case 'losa': { // Losa gám: clock stops + new clock starts (same gámur)
-        const c = findOrCreate(job.containerNumber);
-        if (c) {
+        if (num && num !== 'Nei') {
+          const c = findOrCreateForEnd(num) || findOrCreateForStart(num);
           if (c.status === 'utleigu' && c.placedAt) {
             const { summary } = endRental(c);
             if (summary) summaries.push(summary);
@@ -1910,29 +1965,28 @@
       case 'skipta': { // Skipta gám: tekinn returns, settur is placed (same number = Losa)
         const tek = job.containerNumberTekinn;
         const set = job.containerNumberSettur;
-        if (tek && set && tek === set) {
-          const c = findOrCreate(tek);
-          if (c) {
-            if (c.status === 'utleigu' && c.placedAt) {
-              const { summary } = endRental(c);
-              if (summary) summaries.push(summary);
-            }
-            await fsSetContainer(startRental(c));
+        if (tek && set && tek === set && tek !== 'Nei') {
+          const c = findOrCreateForEnd(tek) || findOrCreateForStart(tek);
+          if (c.status === 'utleigu' && c.placedAt) {
+            const { summary } = endRental(c);
+            if (summary) summaries.push(summary);
           }
+          await fsSetContainer(startRental(c));
         } else {
-          if (tek) {
-            const cT = findOrCreate(tek);
-            if (cT) {
-              const wasAutoCreated = !appData.containers.find(x => x.id === cT.id);
+          if (tek && tek !== 'Nei') {
+            const cT = findOrCreateForEnd(tek);
+            if (!cT) {
+              warnings.push(`Gámur #${tek} var ekki skráður sem útleigður — bætti í kerfið sjálfkrafa`);
+            } else {
               const { updated, summary } = endRental(cT);
               await fsSetContainer(updated);
               if (summary) summaries.push(summary);
-              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður${wasAutoCreated ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður`);
             }
           }
-          if (set) {
-            const cS = findOrCreate(set);
-            if (cS) await fsSetContainer(startRental(cS));
+          if (set && set !== 'Nei') {
+            const cS = findOrCreateForStart(set);
+            await fsSetContainer(startRental(cS));
           }
         }
         break;

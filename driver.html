@@ -381,7 +381,12 @@
   function cleanObj(obj) { return JSON.parse(JSON.stringify(obj, (k,v) => v===undefined ? null : v)); }
   async function fsSetJob(job) { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)); }
   async function fsSetRequest(req) { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)); }
-  async function fsSetContainer(c) { const {id,...d}=c; await setDoc(doc(db,'containers',id), cleanObj(d)); }
+  function makeContainerKey(displayId, size) { return `${displayId}__${size || 'litill'}`; }
+  async function fsSetContainer(c) {
+    const key = c._key || makeContainerKey(c.id, c.size);
+    const {_key, ...d} = c;
+    await setDoc(doc(db,'containers', key), cleanObj(d));
+  }
 
   // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
   onSnapshot(collection(db,'jobs'), snap => {
@@ -392,7 +397,12 @@
     appData.driverRequests = snap.docs.map(d => ({id:d.id,...d.data()}));
   });
   onSnapshot(collection(db,'containers'), snap => {
-    appData.containers = snap.docs.map(d => ({id:d.id,...d.data()}));
+    appData.containers = snap.docs.map(d => {
+      const data = d.data();
+      const displayId = data.id || d.id.split('__')[0];
+      const size = data.size || (d.id.includes('__') ? d.id.split('__')[1] : 'litill');
+      return { ...data, _key: d.id, id: displayId, size };
+    });
   });
   onSnapshot(collection(db,'approvedDrivers'), snap => {
     appData.approvedDrivers = snap.docs.map(d => ({id:d.id,...d.data()}));
@@ -758,16 +768,44 @@
     const summaries = [];
     const warnings = [];
 
-    const findOrCreate = (num) => {
-      if (!num || num === 'Nei') return null;
-      const existing = appData.containers.find(c => c.id === num);
-      if (existing) return existing;
-      return {
-        id: num, size: 'litill', sergerd: '', status: 'heima',
-        company: '', where: '', contact: '', placedAt: null,
-        efni: '', efniLabel: '', note: '',
-        autoCreated: true, createdAt: now, updatedAt: now
-      };
+    const findCandidates = (num) => {
+      if (!num || num === 'Nei') return [];
+      return appData.containers.filter(c => c.id === num);
+    };
+    const sizeLabel = { '15m3': '15 m³', 'litill': 'Lítill', 'stor': 'Stór' };
+    const pickContainer = (matches, intent) => {
+      if (matches.length === 0) return null;
+      if (matches.length === 1) return matches[0];
+      const sameLoc = matches.find(c => c.company === job.company && c.where === job.where);
+      if (sameLoc) return sameLoc;
+      if (intent === 'end') {
+        const utiOne = matches.find(c => c.status === 'utleigu');
+        return utiOne || matches[0];
+      } else {
+        const heimaOne = matches.find(c => c.status === 'heima');
+        return heimaOne || matches[0];
+      }
+    };
+    const findOrCreateForStart = (num) => {
+      const matches = findCandidates(num);
+      if (matches.length === 0) {
+        return {
+          id: num, size: 'litill', sergerd: '', status: 'heima',
+          company: '', where: '', contact: '', placedAt: null,
+          efni: '', efniLabel: '', note: '',
+          autoCreated: true, createdAt: now, updatedAt: now
+        };
+      }
+      const picked = pickContainer(matches, 'start');
+      if (matches.length > 1) warnings.push(`Margir gámar með númerið ${num} fundust — uppfærði ${sizeLabel[picked.size] || picked.size}`);
+      return picked;
+    };
+    const findOrCreateForEnd = (num) => {
+      const matches = findCandidates(num);
+      if (matches.length === 0) return null;
+      const picked = pickContainer(matches, 'end');
+      if (matches.length > 1) warnings.push(`Margir gámar með númerið ${num} fundust — uppfærði ${sizeLabel[picked.size] || picked.size}`);
+      return picked;
     };
     const startRental = (c) => ({
       ...c, status: 'utleigu',
@@ -787,26 +825,34 @@
       return { updated, summary };
     };
 
+    const num = job.containerNumber;
     switch (job.jobType) {
       case 'fara': {
-        const c = findOrCreate(job.containerNumber);
-        if (c) await fsSetContainer(startRental(c));
+        if (num && num !== 'Nei') {
+          const c = findOrCreateForStart(num);
+          await fsSetContainer(startRental(c));
+        }
         break;
       }
       case 'sekja': {
-        const c = findOrCreate(job.containerNumber);
-        if (c) {
-          const wasAuto = !appData.containers.find(x => x.id === c.id);
-          const { updated, summary } = endRental(c);
-          await fsSetContainer(updated);
-          if (summary) summaries.push(summary);
-          else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður${wasAuto ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+        if (num && num !== 'Nei') {
+          const c = findOrCreateForEnd(num);
+          if (!c) {
+            warnings.push(`Gámur #${num} var ekki skráður sem útleigður — bætti í kerfið sjálfkrafa`);
+            const newC = findOrCreateForStart(num);
+            await fsSetContainer({ ...newC, updatedAt: now });
+          } else {
+            const { updated, summary } = endRental(c);
+            await fsSetContainer(updated);
+            if (summary) summaries.push(summary);
+            else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður`);
+          }
         }
         break;
       }
       case 'losa': {
-        const c = findOrCreate(job.containerNumber);
-        if (c) {
+        if (num && num !== 'Nei') {
+          const c = findOrCreateForEnd(num) || findOrCreateForStart(num);
           if (c.status === 'utleigu' && c.placedAt) {
             const { summary } = endRental(c);
             if (summary) summaries.push(summary);
@@ -818,29 +864,28 @@
       case 'skipta': {
         const tek = job.containerNumberTekinn;
         const set = job.containerNumberSettur;
-        if (tek && set && tek === set) {
-          const c = findOrCreate(tek);
-          if (c) {
-            if (c.status === 'utleigu' && c.placedAt) {
-              const { summary } = endRental(c);
-              if (summary) summaries.push(summary);
-            }
-            await fsSetContainer(startRental(c));
+        if (tek && set && tek === set && tek !== 'Nei') {
+          const c = findOrCreateForEnd(tek) || findOrCreateForStart(tek);
+          if (c.status === 'utleigu' && c.placedAt) {
+            const { summary } = endRental(c);
+            if (summary) summaries.push(summary);
           }
+          await fsSetContainer(startRental(c));
         } else {
-          if (tek) {
-            const cT = findOrCreate(tek);
-            if (cT) {
-              const wasAuto = !appData.containers.find(x => x.id === cT.id);
+          if (tek && tek !== 'Nei') {
+            const cT = findOrCreateForEnd(tek);
+            if (!cT) {
+              warnings.push(`Gámur #${tek} var ekki skráður sem útleigður — bætti í kerfið sjálfkrafa`);
+            } else {
               const { updated, summary } = endRental(cT);
               await fsSetContainer(updated);
               if (summary) summaries.push(summary);
-              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður${wasAuto ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður`);
             }
           }
-          if (set) {
-            const cS = findOrCreate(set);
-            if (cS) await fsSetContainer(startRental(cS));
+          if (set && set !== 'Nei') {
+            const cS = findOrCreateForStart(set);
+            await fsSetContainer(startRental(cS));
           }
         }
         break;
