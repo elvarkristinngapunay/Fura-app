@@ -109,6 +109,15 @@
     #ci-preview-table .ci-skip-btn { background: transparent; border: 1px solid var(--mid); color: var(--muted); font-size: 0.7rem; padding: 0.25rem 0.55rem; border-radius: 5px; cursor: pointer; font-weight: 700; white-space: nowrap; }
     #ci-preview-table .ci-skip-btn.skipped { background: var(--red); border-color: var(--red); color: #fff; }
     #ci-preview-table .ci-warn-icon { color: var(--yellow); font-weight: 700; font-size: 0.95rem; cursor: help; }
+    /* Rental summary block on Lokid Taka gam sheets */
+    .rental-summary { margin-top: 0.85rem; padding: 0.85rem 1rem; background: var(--warm); border: 1.5px solid var(--mid); border-left: 4px solid var(--green); border-radius: 8px; }
+    .rental-summary-title { font-size: 0.72rem; font-weight: 800; color: var(--green); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+    .rental-summary-line { font-size: 0.9rem; color: var(--ink); margin-bottom: 0.55rem; line-height: 1.55; }
+    .rental-summary-line:last-of-type { margin-bottom: 0.4rem; }
+    .rental-summary-line .rental-dates { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+    .rental-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; justify-content: flex-end; }
+    .rental-warning { margin-top: 0.6rem; padding: 0.55rem 0.85rem; background: #fef4e5; border-left: 3px solid var(--yellow); border-radius: 4px; color: #8a5a2b; font-size: 0.82rem; font-weight: 600; }
+    [data-theme="dark"] .rental-warning { background: #4a3a2a; color: #d4a878; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
 
     #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--dark-surface); }
@@ -1184,6 +1193,57 @@
 
   let _ciRows = []; // parsed rows for preview/edit
 
+  // ── RENTAL SUMMARY BLOCK ON LOKIÐ JOB CARDS ──────────────────────────────
+
+  function rentalSummaryBlock(job) {
+    const summaries = job.rentalSummaries || [];
+    const warnings = job.rentalWarnings || [];
+    if (summaries.length === 0 && warnings.length === 0) return '';
+
+    const visible = job.rentalSummariesVisible; // true / false / undefined
+    const choiceMade = visible === true || visible === false;
+
+    let html = '';
+    if (warnings.length > 0) {
+      html += warnings.map(w => `<div class="rental-warning">⚠ ${escHtml(w)}</div>`).join('');
+    }
+    if (summaries.length > 0) {
+      const items = summaries.map(s => {
+        const placedFmt = fmtIcelandicDate(s.placedAt);
+        const returnedFmt = fmtIcelandicDate(s.returnedAt);
+        const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
+        const wherePart = s.company && s.where ? `${s.company} (${s.where})` : (s.company || s.where || '');
+        return `<div class="rental-summary-line">
+          <div><strong>Gámur #${escHtml(s.containerId)}</strong> var hjá <strong>${escHtml(wherePart)}</strong> í <strong>${daysLabel(s.days)}</strong></div>
+          <div class="rental-dates">${placedFmt} → ${returnedFmt}${efniText ? ` · Efni: <strong>${escHtml(efniText)}</strong>` : ''}</div>
+        </div>`;
+      }).join('');
+      if (!choiceMade) {
+        html += `<div class="rental-summary"><div class="rental-summary-title">Útleigusaga</div>${items}
+          <div class="rental-actions">
+            <button class="btn btn-outline btn-sm" onclick="rentalLoka('${job.id}')">Loka</button>
+            <button class="btn btn-green btn-sm" onclick="rentalVista('${job.id}')">✓ Vista á blað</button>
+          </div></div>`;
+      } else if (visible === true) {
+        html += `<div class="rental-summary"><div class="rental-summary-title">Útleigusaga</div>${items}</div>`;
+      }
+    }
+    return html;
+  }
+
+  window.rentalVista = async function(jobId) {
+    const job = appData.jobs.find(j => j.id === jobId);
+    if (!job) return;
+    await fsSetJob({ ...job, rentalSummariesVisible: true });
+    showToast('Útleigusaga vistuð á blað ✓');
+  };
+  window.rentalLoka = async function(jobId) {
+    const job = appData.jobs.find(j => j.id === jobId);
+    if (!job) return;
+    await fsSetJob({ ...job, rentalSummariesVisible: false });
+    showToast('Lokað');
+  };
+
   window.openContainerImport = function() {
     document.getElementById('ci-input').value = '';
     document.getElementById('ci-step1').style.display = 'flex';
@@ -1708,6 +1768,7 @@
         ${job.completionNote ? `<div class="delay-info-dir" style="border-left-color:var(--rust);background:#fff8f6;"><strong>⚠️ Athugasemd bílstjóra</strong>${job.completionNote}</div>` : ''}
         ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
+        ${job.status === 'done' ? rentalSummaryBlock(job) : ''}
         ${job.status === 'done' ? excelStrip(job) : ''}
         ${_completingJobId === job.id ? renderCompleteForm(job) : ''}
         <div class="job-actions">
@@ -1771,6 +1832,117 @@
     renderJobsList();
   };
 
+  // ── RENTAL LINKING LOGIC ──────────────────────────────────────────────────
+  // When a gám job finishes with a gámanúmer, update the corresponding container
+  // record(s) and produce a rental summary to display on the sheet.
+  // GAM_JOB_TYPES: rental clock attached. KAR job types are skipped entirely.
+  const GAM_JOB_TYPES = ['sekja', 'losa', 'skipta', 'fara'];
+
+  async function applyContainerRentalLogic(job) {
+    if (!GAM_JOB_TYPES.includes(job.jobType)) return null;
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
+    const summaries = [];
+    const warnings = [];
+
+    const findOrCreate = (num) => {
+      if (!num || num === 'Nei') return null;
+      const existing = appData.containers.find(c => c.id === num);
+      if (existing) return existing;
+      return {
+        id: num, size: 'litill', sergerd: '', status: 'heima',
+        company: '', where: '', contact: '', placedAt: null,
+        efni: '', efniLabel: '', note: '',
+        autoCreated: true, createdAt: now, updatedAt: now
+      };
+    };
+
+    const startRental = (c) => ({
+      ...c, status: 'utleigu',
+      company: job.company || '', where: job.where || '',
+      placedAt: today,
+      efni: job.material || '', efniLabel: job.materialLabel || '',
+      updatedAt: now
+    });
+
+    const endRental = (c) => {
+      const summary = (c.status === 'utleigu' && c.placedAt) ? {
+        containerId: c.id,
+        company: c.company || '',
+        where: c.where || '',
+        placedAt: c.placedAt,
+        returnedAt: today,
+        days: Math.max(0, Math.floor((new Date(today + 'T00:00:00') - new Date(c.placedAt + 'T00:00:00')) / 86400000)),
+        efni: c.efni || '',
+        efniLabel: c.efniLabel || ''
+      } : null;
+      const updated = { ...c, status: 'heima', company: '', where: '', placedAt: null, efni: '', efniLabel: '', updatedAt: now };
+      return { updated, summary };
+    };
+
+    switch (job.jobType) {
+      case 'fara': { // Vantar gám: clock starts
+        const c = findOrCreate(job.containerNumber);
+        if (c) await fsSetContainer(startRental(c));
+        break;
+      }
+      case 'sekja': { // Taka gám: clock stops
+        const c = findOrCreate(job.containerNumber);
+        if (c) {
+          const wasAutoCreated = !appData.containers.find(x => x.id === c.id);
+          const { updated, summary } = endRental(c);
+          await fsSetContainer(updated);
+          if (summary) summaries.push(summary);
+          else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður${wasAutoCreated ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+        }
+        break;
+      }
+      case 'losa': { // Losa gám: clock stops + new clock starts (same gámur)
+        const c = findOrCreate(job.containerNumber);
+        if (c) {
+          if (c.status === 'utleigu' && c.placedAt) {
+            const { summary } = endRental(c);
+            if (summary) summaries.push(summary);
+          }
+          await fsSetContainer(startRental(c));
+        }
+        break;
+      }
+      case 'skipta': { // Skipta gám: tekinn returns, settur is placed (same number = Losa)
+        const tek = job.containerNumberTekinn;
+        const set = job.containerNumberSettur;
+        if (tek && set && tek === set) {
+          const c = findOrCreate(tek);
+          if (c) {
+            if (c.status === 'utleigu' && c.placedAt) {
+              const { summary } = endRental(c);
+              if (summary) summaries.push(summary);
+            }
+            await fsSetContainer(startRental(c));
+          }
+        } else {
+          if (tek) {
+            const cT = findOrCreate(tek);
+            if (cT) {
+              const wasAutoCreated = !appData.containers.find(x => x.id === cT.id);
+              const { updated, summary } = endRental(cT);
+              await fsSetContainer(updated);
+              if (summary) summaries.push(summary);
+              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður${wasAutoCreated ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+            }
+          }
+          if (set) {
+            const cS = findOrCreate(set);
+            if (cS) await fsSetContainer(startRental(cS));
+          }
+        }
+        break;
+      }
+    }
+
+    return { summaries, warnings };
+  }
+
   window.completeJob = async function(id, isSkipta) {
     const job = getData().jobs.find(j => j.id === id);
     if (!job) return;
@@ -1791,6 +1963,13 @@
     }
     if (note) updated.completionNote = note;
     _completingJobId = null;
+    // Apply rental linking BEFORE saving the job so we can attach summaries
+    const result = await applyContainerRentalLogic(updated);
+    if (result) {
+      if (result.summaries.length) updated.rentalSummaries = result.summaries;
+      if (result.warnings.length) updated.rentalWarnings = result.warnings;
+      updated.rentalProcessed = true;
+    }
     await fsSetJob(updated);
     showToast('Verkefni skráð sem lokið ✓');
   };

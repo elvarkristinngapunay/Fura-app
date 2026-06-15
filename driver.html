@@ -376,11 +376,12 @@
   const db = getFirestore(fireApp);
 
   // ── LOCAL CACHE ────────────────────────────────────────────────────────────
-  let appData = { jobs: [], driverRequests: [], approvedDrivers: [] };
+  let appData = { jobs: [], driverRequests: [], approvedDrivers: [], containers: [] };
   function getData() { return appData; }
   function cleanObj(obj) { return JSON.parse(JSON.stringify(obj, (k,v) => v===undefined ? null : v)); }
   async function fsSetJob(job) { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)); }
   async function fsSetRequest(req) { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)); }
+  async function fsSetContainer(c) { const {id,...d}=c; await setDoc(doc(db,'containers',id), cleanObj(d)); }
 
   // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
   onSnapshot(collection(db,'jobs'), snap => {
@@ -389,6 +390,9 @@
   });
   onSnapshot(collection(db,'driverRequests'), snap => {
     appData.driverRequests = snap.docs.map(d => ({id:d.id,...d.data()}));
+  });
+  onSnapshot(collection(db,'containers'), snap => {
+    appData.containers = snap.docs.map(d => ({id:d.id,...d.data()}));
   });
   onSnapshot(collection(db,'approvedDrivers'), snap => {
     appData.approvedDrivers = snap.docs.map(d => ({id:d.id,...d.data()}));
@@ -744,6 +748,107 @@
     if (el) { el.value = 'Nei'; el.focus(); el.blur(); }
   };
 
+  // ── RENTAL LINKING (mirrors director.html logic) ──────────────────────────
+  const GAM_JOB_TYPES = ['sekja', 'losa', 'skipta', 'fara'];
+
+  async function applyContainerRentalLogic(job) {
+    if (!GAM_JOB_TYPES.includes(job.jobType)) return null;
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
+    const summaries = [];
+    const warnings = [];
+
+    const findOrCreate = (num) => {
+      if (!num || num === 'Nei') return null;
+      const existing = appData.containers.find(c => c.id === num);
+      if (existing) return existing;
+      return {
+        id: num, size: 'litill', sergerd: '', status: 'heima',
+        company: '', where: '', contact: '', placedAt: null,
+        efni: '', efniLabel: '', note: '',
+        autoCreated: true, createdAt: now, updatedAt: now
+      };
+    };
+    const startRental = (c) => ({
+      ...c, status: 'utleigu',
+      company: job.company || '', where: job.where || '',
+      placedAt: today,
+      efni: job.material || '', efniLabel: job.materialLabel || '',
+      updatedAt: now
+    });
+    const endRental = (c) => {
+      const summary = (c.status === 'utleigu' && c.placedAt) ? {
+        containerId: c.id, company: c.company || '', where: c.where || '',
+        placedAt: c.placedAt, returnedAt: today,
+        days: Math.max(0, Math.floor((new Date(today + 'T00:00:00') - new Date(c.placedAt + 'T00:00:00')) / 86400000)),
+        efni: c.efni || '', efniLabel: c.efniLabel || ''
+      } : null;
+      const updated = { ...c, status: 'heima', company: '', where: '', placedAt: null, efni: '', efniLabel: '', updatedAt: now };
+      return { updated, summary };
+    };
+
+    switch (job.jobType) {
+      case 'fara': {
+        const c = findOrCreate(job.containerNumber);
+        if (c) await fsSetContainer(startRental(c));
+        break;
+      }
+      case 'sekja': {
+        const c = findOrCreate(job.containerNumber);
+        if (c) {
+          const wasAuto = !appData.containers.find(x => x.id === c.id);
+          const { updated, summary } = endRental(c);
+          await fsSetContainer(updated);
+          if (summary) summaries.push(summary);
+          else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður${wasAuto ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+        }
+        break;
+      }
+      case 'losa': {
+        const c = findOrCreate(job.containerNumber);
+        if (c) {
+          if (c.status === 'utleigu' && c.placedAt) {
+            const { summary } = endRental(c);
+            if (summary) summaries.push(summary);
+          }
+          await fsSetContainer(startRental(c));
+        }
+        break;
+      }
+      case 'skipta': {
+        const tek = job.containerNumberTekinn;
+        const set = job.containerNumberSettur;
+        if (tek && set && tek === set) {
+          const c = findOrCreate(tek);
+          if (c) {
+            if (c.status === 'utleigu' && c.placedAt) {
+              const { summary } = endRental(c);
+              if (summary) summaries.push(summary);
+            }
+            await fsSetContainer(startRental(c));
+          }
+        } else {
+          if (tek) {
+            const cT = findOrCreate(tek);
+            if (cT) {
+              const wasAuto = !appData.containers.find(x => x.id === cT.id);
+              const { updated, summary } = endRental(cT);
+              await fsSetContainer(updated);
+              if (summary) summaries.push(summary);
+              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður${wasAuto ? ' — bætt í kerfið sjálfkrafa' : ''}`);
+            }
+          }
+          if (set) {
+            const cS = findOrCreate(set);
+            if (cS) await fsSetContainer(startRental(cS));
+          }
+        }
+        break;
+      }
+    }
+    return { summaries, warnings };
+  }
+
   window.markDone = async function(id, isSkipta) {
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
@@ -764,6 +869,13 @@
       updated.containerNumber = num;
     }
     if (completionNote) updated.completionNote = completionNote;
+    // Apply rental linking before saving so summaries land on the job
+    const result = await applyContainerRentalLogic(updated);
+    if (result) {
+      if (result.summaries.length) updated.rentalSummaries = result.summaries;
+      if (result.warnings.length) updated.rentalWarnings = result.warnings;
+      updated.rentalProcessed = true;
+    }
     await fsSetJob(updated);
     window.switchTab('klarud');
     showToast('Lokið! ' + (isKarJob ? 'Karnúmer' : 'Gámanúmer') + ' skráð ✓');
