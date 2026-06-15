@@ -99,6 +99,16 @@
     .container-modal-body .form-group { margin-bottom: 0; }
     .container-status-pick { display: flex; gap: 0.5rem; }
     .container-status-pick .option-btn { flex: 1; }
+    /* Import preview table */
+    #ci-preview-table th { background: var(--warm); padding: 0.45rem 0.5rem; text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1.5px solid var(--mid); position: sticky; top: 0; z-index: 1; }
+    #ci-preview-table td { padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--mid); vertical-align: middle; }
+    #ci-preview-table input, #ci-preview-table select { width: 100%; padding: 0.35rem 0.5rem; border: 1px solid var(--mid); border-radius: 5px; font-size: 0.8rem; background: var(--white); color: var(--ink); outline: none; }
+    #ci-preview-table input:focus, #ci-preview-table select:focus { border-color: var(--rust); }
+    #ci-preview-table tr.row-skip td { opacity: 0.4; }
+    #ci-preview-table tr.row-warn { background: rgba(243,156,18,0.08); }
+    #ci-preview-table .ci-skip-btn { background: transparent; border: 1px solid var(--mid); color: var(--muted); font-size: 0.7rem; padding: 0.25rem 0.55rem; border-radius: 5px; cursor: pointer; font-weight: 700; white-space: nowrap; }
+    #ci-preview-table .ci-skip-btn.skipped { background: var(--red); border-color: var(--red); color: #fff; }
+    #ci-preview-table .ci-warn-icon { color: var(--yellow); font-weight: 700; font-size: 0.95rem; cursor: help; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--warm); color: var(--ink); min-height: 100vh; }
 
     #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--dark-surface); }
@@ -601,6 +611,35 @@
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeContainerForm()">Hætta við</button>
       <button class="btn btn-rust" onclick="saveContainer()">Vista</button>
+    </div>
+  </div>
+</div>
+
+<!-- Container Excel import modal -->
+<div class="modal-overlay" id="container-import-modal" style="display:none;" onclick="if(event.target===this)closeContainerImport()">
+  <div class="modal-box" style="max-width:1100px;width:96vw;max-height:92vh;display:flex;flex-direction:column;">
+    <div class="modal-title">📥 Flytja inn gáma úr Excel</div>
+    <p class="modal-body" style="margin-bottom:0.4rem;">Afritaðu raðirnar úr Excel og límdu hér að neðan. Smelltu á <strong>Lesa</strong> til að sjá yfirlit.</p>
+    <p class="modal-body" style="font-size:0.8rem;margin-bottom:0.6rem;">Dálkaröð: <em>Gámanúmer · Stærð · Staðsetning · Dagsetning · Athugasemd</em></p>
+    <div id="ci-step1" style="display:flex;flex-direction:column;gap:0.6rem;flex:1;overflow:hidden;">
+      <textarea id="ci-input" rows="8" placeholder="Límdu hér úr Excel — eina röð á línu, dálkar aðskildir með tab..." style="width:100%;padding:0.8rem;border:1.5px solid var(--mid);border-radius:8px;font-family:monospace;font-size:0.85rem;background:var(--white);color:var(--ink);"></textarea>
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="closeContainerImport()">Hætta við</button>
+        <button class="btn btn-rust" onclick="parseContainerImport()">Lesa →</button>
+      </div>
+    </div>
+    <div id="ci-step2" style="display:none;flex-direction:column;gap:0.6rem;flex:1;overflow:hidden;">
+      <div id="ci-preview-summary" style="font-size:0.85rem;color:var(--muted);font-weight:600;"></div>
+      <div style="overflow:auto;flex:1;border:1px solid var(--mid);border-radius:8px;">
+        <table id="ci-preview-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;"></table>
+      </div>
+      <div style="display:flex;gap:0.5rem;justify-content:space-between;align-items:center;">
+        <button class="btn btn-outline btn-sm" onclick="ciBackToStep1()">← Til baka</button>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn btn-outline" onclick="closeContainerImport()">Hætta við</button>
+          <button class="btn btn-rust" id="ci-save-btn" onclick="commitContainerImport()">Vista alla</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1141,8 +1180,274 @@
     showToast('Gámur fjarlægður');
   };
 
+  // ── EXCEL IMPORT ──────────────────────────────────────────────────────────
+
+  let _ciRows = []; // parsed rows for preview/edit
+
   window.openContainerImport = function() {
-    showToast('Innflutningur úr Excel kemur næst — gef mér eina mínútu');
+    document.getElementById('ci-input').value = '';
+    document.getElementById('ci-step1').style.display = 'flex';
+    document.getElementById('ci-step2').style.display = 'none';
+    document.getElementById('container-import-modal').style.display = 'flex';
+    _ciRows = [];
+  };
+  window.closeContainerImport = function() {
+    document.getElementById('container-import-modal').style.display = 'none';
+    _ciRows = [];
+  };
+  window.ciBackToStep1 = function() {
+    document.getElementById('ci-step1').style.display = 'flex';
+    document.getElementById('ci-step2').style.display = 'none';
+  };
+
+  // Parse a single Excel date-ish string into ISO yyyy-mm-dd, or null
+  function parseImportDate(s) {
+    if (!s) return null;
+    s = String(s).trim().replace(/[.´'`´]+$/, '').replace(/´|´/g, "'");
+    if (!s) return null;
+    // formats: d.m.yyyy, d.m.yy, d/m/yyyy
+    const m = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/);
+    if (m) {
+      let d = parseInt(m[1], 10);
+      let mo = parseInt(m[2], 10);
+      let y = parseInt(m[3], 10);
+      if (y < 100) y += y < 50 ? 2000 : 1900;
+      if (d > 0 && d <= 31 && mo > 0 && mo <= 12 && y > 1900) {
+        return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      }
+    }
+    return null;
+  }
+
+  function parseImportSize(raw) {
+    const s = (raw || '').trim().toUpperCase();
+    if (!s) return { size: 'litill', sergerd: '' };
+    if (s.includes('15') && s.includes('M')) return { size: '15m3', sergerd: '' };
+    if (s.includes('STÓR') || s.includes('STOR')) return { size: 'stor', sergerd: '' };
+    if (s.includes('TIMBUR') && s.includes('DEKK')) return { size: 'stor', sergerd: 'timburgamur' };
+    if (s.includes('LOKAÐUR') || s.includes('LOKADUR')) return { size: 'stor', sergerd: 'lokadur' };
+    return { size: 'litill', sergerd: '' };
+  }
+
+  function parseImportEfniFromNote(note) {
+    if (!note) return { efni: '', efniLabel: '', remainingNote: '' };
+    const n = note.toLowerCase();
+    if (n.includes('ryðfrítt') || n.includes('rydfritt') || n.includes('ryðfrí')) {
+      return { efni: 'annad', efniLabel: 'Ryðfrítt', remainingNote: note.replace(/ryð?frítt?\.?/gi, '').trim() };
+    }
+    if (n.includes('timbur')) {
+      let rem = note.replace(/timbur(-dekk)?\.?/gi, '').trim();
+      return { efni: 'timbur', efniLabel: '', remainingNote: rem };
+    }
+    if (n.includes('járn') || n.includes('jarn')) {
+      let rem = note.replace(/j(á|a)rn(agámur)?\.?/gi, '').trim();
+      return { efni: 'jarn', efniLabel: '', remainingNote: rem };
+    }
+    if (n.includes('dekk')) {
+      return { efni: 'annad', efniLabel: 'Dekk', remainingNote: note.replace(/dekk\.?/gi, '').trim() };
+    }
+    return { efni: '', efniLabel: '', remainingNote: note };
+  }
+
+  function splitCompanyWhere(text) {
+    if (!text) return { company: '', where: '' };
+    // common pattern: "Company - Location" or "Company Location" — split on " - "
+    const sepIdx = text.indexOf(' - ');
+    if (sepIdx > 0) return { company: text.slice(0, sepIdx).trim(), where: text.slice(sepIdx + 3).trim() };
+    return { company: text.trim(), where: '' };
+  }
+
+  window.parseContainerImport = function() {
+    const raw = document.getElementById('ci-input').value;
+    if (!raw.trim()) { showToast('Límdu inn texta fyrst'); return; }
+    const lines = raw.split(/\r?\n/).filter(l => l.trim());
+    _ciRows = lines.map((line, idx) => {
+      // split on tab; if no tabs, fall back to 2+ spaces
+      const cells = line.includes('\t') ? line.split('\t') : line.split(/\s{2,}/);
+      const rawId = (cells[0] || '').trim();
+      const rawSize = (cells[1] || '').trim();
+      const rawLoc = (cells[2] || '').trim();
+      const rawDate = (cells[3] || '').trim();
+      const rawNote = (cells[4] || '').trim();
+
+      // skip header row if it looks like one
+      if (idx === 0 && /gámanúmer|gamanumer|stærð|staerd|staðsetning|stadsetning|dagsetning/i.test(rawId + ' ' + rawSize + ' ' + rawLoc + ' ' + rawDate)) {
+        return null;
+      }
+
+      const sizeInfo = parseImportSize(rawSize);
+      // If "Lokaður" was in id column (e.g., "Minni Lokaður") or location had "Lokaður"
+      let sergerd = sizeInfo.sergerd;
+      let sizeOut = sizeInfo.size;
+      if (/lokaður/i.test(rawId) || /lokaður/i.test(rawSize)) {
+        sergerd = 'lokadur';
+        if (/minni/i.test(rawId)) sizeOut = 'litill';
+        if (/stærri|staerri/i.test(rawId)) sizeOut = 'stor';
+      }
+
+      // Status: Fura location → heima, else → utleigu
+      const isFura = rawLoc && /^fura\s*$/i.test(rawLoc);
+      const isUnknown = !rawLoc;
+      let status = (isFura ? 'heima' : (rawLoc ? 'utleigu' : 'heima'));
+      let company = '', where = '';
+      if (status === 'utleigu') {
+        const split = splitCompanyWhere(rawLoc);
+        company = split.company;
+        where = split.where;
+      }
+
+      const placedAt = parseImportDate(rawDate);
+      const efniInfo = parseImportEfniFromNote(rawNote);
+
+      const warnings = [];
+      if (status === 'utleigu' && !placedAt && rawDate) warnings.push('Dagsetning óskýr: "' + rawDate + '"');
+      if (!rawId) warnings.push('Engin auðkenning');
+      if (status === 'utleigu' && !company && !where) warnings.push('Vantar fyrirtæki/staðsetningu');
+
+      return {
+        rowNum: idx + 1,
+        skip: !rawId,
+        id: rawId,
+        size: sizeOut,
+        sergerd,
+        status,
+        company,
+        where,
+        placedAt: placedAt || '',
+        efni: status === 'utleigu' ? efniInfo.efni : '',
+        efniLabel: status === 'utleigu' ? efniInfo.efniLabel : '',
+        note: efniInfo.remainingNote,
+        warnings
+      };
+    }).filter(r => r);
+
+    if (_ciRows.length === 0) { showToast('Engar gildar línur fundust'); return; }
+    renderImportPreview();
+    document.getElementById('ci-step1').style.display = 'none';
+    document.getElementById('ci-step2').style.display = 'flex';
+  };
+
+  function renderImportPreview() {
+    const tbl = document.getElementById('ci-preview-table');
+    const sum = document.getElementById('ci-preview-summary');
+    const active = _ciRows.filter(r => !r.skip).length;
+    const warns = _ciRows.filter(r => r.warnings.length).length;
+    sum.innerHTML = `<strong>${_ciRows.length}</strong> raðir lesnar · <strong>${active}</strong> tilbúnar til vistunar` + (warns ? ` · <strong style="color:var(--rust);">${warns}</strong> með viðvörun` : '');
+
+    const head = `<thead><tr>
+      <th style="width:35px;"></th>
+      <th style="width:65px;">Núm.</th>
+      <th style="width:95px;">Stærð</th>
+      <th style="width:115px;">Sérgerð</th>
+      <th style="width:90px;">Staða</th>
+      <th>Fyrirtæki</th>
+      <th>Staðsetning</th>
+      <th style="width:120px;">Sett þann</th>
+      <th style="width:100px;">Efni</th>
+      <th>Athugasemd</th>
+      <th style="width:75px;"></th>
+    </tr></thead>`;
+
+    const rows = _ciRows.map((r, i) => {
+      const wTitle = r.warnings.length ? r.warnings.join(' · ') : '';
+      const warnIcon = r.warnings.length ? `<span class="ci-warn-icon" title="${escHtml(wTitle)}">⚠</span>` : '';
+      const cls = (r.skip ? 'row-skip' : '') + (r.warnings.length && !r.skip ? ' row-warn' : '');
+      const utleigu = r.status === 'utleigu';
+      const sizeOpts = ['15m3:15 m³', 'litill:Lítill', 'stor:Stór'].map(o => {
+        const [val, lbl] = o.split(':');
+        return `<option value="${val}"${val === r.size ? ' selected' : ''}>${lbl}</option>`;
+      }).join('');
+      const sergerdOpts = ['', 'timburgamur:Timburgámur', 'lokadur:Lokaður'].map(o => {
+        const [val, lbl] = o.split(':');
+        return `<option value="${val}"${val === r.sergerd ? ' selected' : ''}>${lbl || '—'}</option>`;
+      }).join('');
+      const statusOpts = ['heima:🏠 Heima', 'utleigu:🚛 Útleigu'].map(o => {
+        const [val, lbl] = o.split(':');
+        return `<option value="${val}"${val === r.status ? ' selected' : ''}>${lbl}</option>`;
+      }).join('');
+      const efniOpts = [':—', 'jarn:Járn', 'timbur:Timbur', 'annad:Annað'].map(o => {
+        const [val, lbl] = o.split(':');
+        return `<option value="${val}"${val === r.efni ? ' selected' : ''}>${lbl}</option>`;
+      }).join('');
+      const efniLabelInput = r.efni === 'annad' ? `<input type="text" placeholder="Lýsing..." value="${escHtml(r.efniLabel || '')}" onchange="ciSet(${i}, 'efniLabel', this.value)" style="margin-top:3px;font-size:0.72rem;" />` : '';
+
+      return `<tr class="${cls}" data-row="${i}">
+        <td>${warnIcon}</td>
+        <td><input type="text" value="${escHtml(r.id)}" onchange="ciSet(${i}, 'id', this.value)" /></td>
+        <td><select onchange="ciSet(${i}, 'size', this.value)">${sizeOpts}</select></td>
+        <td><select onchange="ciSet(${i}, 'sergerd', this.value)">${sergerdOpts}</select></td>
+        <td><select onchange="ciSetStatus(${i}, this.value)">${statusOpts}</select></td>
+        <td>${utleigu ? `<input type="text" value="${escHtml(r.company)}" onchange="ciSet(${i}, 'company', this.value)" />` : '—'}</td>
+        <td>${utleigu ? `<input type="text" value="${escHtml(r.where)}" onchange="ciSet(${i}, 'where', this.value)" />` : '—'}</td>
+        <td>${utleigu ? `<input type="date" value="${escHtml(r.placedAt)}" onchange="ciSet(${i}, 'placedAt', this.value)" />` : '—'}</td>
+        <td>${utleigu ? `<select onchange="ciSet(${i}, 'efni', this.value)">${efniOpts}</select>${efniLabelInput}` : '—'}</td>
+        <td><input type="text" value="${escHtml(r.note)}" onchange="ciSet(${i}, 'note', this.value)" /></td>
+        <td><button class="ci-skip-btn${r.skip ? ' skipped' : ''}" onclick="ciToggleSkip(${i})">${r.skip ? 'Sleppt' : 'Sleppa'}</button></td>
+      </tr>`;
+    }).join('');
+
+    tbl.innerHTML = head + '<tbody>' + rows + '</tbody>';
+  }
+
+  window.ciSet = function(idx, field, value) {
+    if (!_ciRows[idx]) return;
+    _ciRows[idx][field] = value;
+  };
+  window.ciSetStatus = function(idx, value) {
+    if (!_ciRows[idx]) return;
+    _ciRows[idx].status = value;
+    if (value === 'heima') {
+      _ciRows[idx].company = ''; _ciRows[idx].where = '';
+      _ciRows[idx].placedAt = ''; _ciRows[idx].efni = ''; _ciRows[idx].efniLabel = '';
+    }
+    renderImportPreview();
+  };
+  window.ciToggleSkip = function(idx) {
+    if (!_ciRows[idx]) return;
+    _ciRows[idx].skip = !_ciRows[idx].skip;
+    renderImportPreview();
+  };
+
+  window.commitContainerImport = async function() {
+    const rowsToSave = _ciRows.filter(r => !r.skip && r.id);
+    if (rowsToSave.length === 0) { showToast('Ekkert til að vista'); return; }
+    const existing = new Set(appData.containers.map(c => c.id));
+    const overlap = rowsToSave.filter(r => existing.has(r.id));
+    if (overlap.length > 0 && !confirm(`${overlap.length} gámar eru þegar til (${overlap.slice(0, 5).map(r => '#' + r.id).join(', ')}${overlap.length > 5 ? '...' : ''}). Skrifa yfir?`)) return;
+
+    const btn = document.getElementById('ci-save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Vistar... 0/' + rowsToSave.length;
+
+    let saved = 0;
+    const now = new Date().toISOString();
+    for (const r of rowsToSave) {
+      try {
+        const c = {
+          id: r.id,
+          size: r.size || 'litill',
+          sergerd: r.sergerd || '',
+          status: r.status || 'heima',
+          company: r.status === 'utleigu' ? r.company : '',
+          where: r.status === 'utleigu' ? r.where : '',
+          contact: '',
+          placedAt: r.status === 'utleigu' ? (r.placedAt || null) : null,
+          efni: r.status === 'utleigu' ? (r.efni || '') : '',
+          efniLabel: r.status === 'utleigu' ? (r.efniLabel || '') : '',
+          note: r.note || '',
+          importedAt: now,
+          updatedAt: now
+        };
+        if (!existing.has(r.id)) c.createdAt = now;
+        await fsSetContainer(c);
+        saved++;
+        if (saved % 5 === 0) btn.textContent = `Vistar... ${saved}/${rowsToSave.length}`;
+      } catch (e) { console.error('Save failed for', r.id, e); }
+    }
+    btn.disabled = false;
+    btn.textContent = 'Vista alla';
+    showToast(`✓ ${saved} gámar vistaðir`);
+    closeContainerImport();
   };
 
   // ── DRIVER BUTTONS ─────────────────────────────────────────────────────────
