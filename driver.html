@@ -902,24 +902,12 @@
     const completionNote = (document.getElementById('completion-note-'+id)||{value:''}).value.trim();
     const isKarJob = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
     const unitName = isKarJob ? 'karnúmer' : 'gámanúmer';
-    let convertedToLosa = false;
     if (isSkipta) {
       const tekinn = (document.getElementById('container-tekinn-'+id)||{value:''}).value.trim();
       const settur = (document.getElementById('container-settur-'+id)||{value:''}).value.trim();
       if (!tekinn || !settur) { showToast('Sláðu inn bæði ' + unitName); return; }
-      if (tekinn === settur && tekinn !== 'Nei') {
-        const isKarSkipta = job.jobType === 'skipta-kari';
-        updated.jobType = isKarSkipta ? 'losa-kar' : 'losa';
-        updated.jobTypeLabel = isKarSkipta ? 'Losa kar' : 'Losa gám';
-        updated.containerNumber = tekinn;
-        updated.containerNumberTekinn = null;
-        updated.containerNumberSettur = null;
-        isSkipta = false; // ensure rental logic treats as Losa
-        convertedToLosa = true;
-      } else {
-        updated.containerNumberTekinn = tekinn;
-        updated.containerNumberSettur = settur;
-      }
+      updated.containerNumberTekinn = tekinn;
+      updated.containerNumberSettur = settur;
     } else {
       const num = (document.getElementById('container-'+id)||{value:''}).value.trim();
       if (!num) { showToast('Sláðu inn ' + unitName); return; }
@@ -935,9 +923,7 @@
     }
     await fsSetJob(updated);
     window.switchTab('klarud');
-    showToast(convertedToLosa
-      ? 'Lokið! Sami gámur — skráð sem Losa gám ✓'
-      : 'Lokið! ' + (isKarJob ? 'Karnúmer' : 'Gámanúmer') + ' skráð ✓');
+    showToast('Lokið! ' + (isKarJob ? 'Karnúmer' : 'Gámanúmer') + ' skráð ✓');
   };
 
   window.showDelayForm = function(id) {
