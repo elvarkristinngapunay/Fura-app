@@ -487,6 +487,15 @@
           </div>
         </div>
 
+        <div class="form-group" id="edit-gamanumer-wrap" style="display:none;background:var(--warm);padding:0.75rem 1rem;border-radius:8px;border:1px solid var(--mid);">
+          <label id="edit-gamanumer-label" style="margin-bottom:0.4rem;">Gámanúmer (skráð við lok)</label>
+          <input type="text" id="edit-gamanumer" />
+          <div id="edit-gamanumer-settur-wrap" style="display:none;margin-top:0.6rem;">
+            <label style="margin-bottom:0.4rem;">Gámanúmer — Settur</label>
+            <input type="text" id="edit-gamanumer-settur" />
+          </div>
+        </div>
+
         <div class="send-row">
           <button class="btn btn-outline" onclick="saveJob()">Vista</button>
           <button class="btn btn-outline" onclick="printCurrentForm()">🖨 Prenta</button>
@@ -1053,8 +1062,9 @@
         <div class="billing-card-line">⏱ <strong>${daysLabel(s.days)}</strong></div>
         <div class="billing-card-line muted">${placedFmt} → ${returnedFmt}</div>
         ${efniText ? `<div class="billing-card-line">♻ <span class="billing-efni">${escHtml(efniText)}</span></div>` : ''}
-        <div class="billing-card-actions">
-          <button class="btn btn-green btn-sm" onclick="markBillingDone('${escHtml(s.jobId)}','${escHtml(s.containerId).replace(/'/g, "\\'")}','${escHtml(s.placedAt)}')">✓ Búið að skrá</button>
+        <div class="billing-card-actions" style="display:flex;gap:0.4rem;">
+          <button class="btn btn-outline btn-sm" style="flex:1;" onclick="editJob('${escHtml(s.jobId)}')">Breyta</button>
+          <button class="btn btn-green btn-sm" style="flex:1;" onclick="markBillingDone('${escHtml(s.jobId)}','${escHtml(s.containerId).replace(/'/g, "\\'")}','${escHtml(s.placedAt)}')">✓ Búið að skrá</button>
         </div>
       </div>`;
     }).join('');
@@ -1938,7 +1948,6 @@
         ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
         ${job.status === 'done' ? rentalSummaryBlock(job) : ''}
-        ${job.status === 'done' ? excelStrip(job) : ''}
         ${_completingJobId === job.id ? renderCompleteForm(job) : ''}
         <div class="job-actions">
           <button class="btn btn-outline btn-sm" onclick="editJob('${job.id}')">Breyta</button>
