@@ -2158,12 +2158,24 @@
     const unitName = isKarJob ? 'karnúmer' : 'gámanúmer';
     const updated = { ...job, status: 'done' };
     const note = (document.getElementById('complete-note-' + id) || { value: '' }).value.trim();
+    let convertedToLosa = false;
     if (isSkipta) {
       const tekinn = (document.getElementById('complete-tekinn-' + id) || { value: '' }).value.trim();
       const settur = (document.getElementById('complete-settur-' + id) || { value: '' }).value.trim();
       if (!tekinn || !settur) { showToast('Sláðu inn bæði ' + unitName); return; }
-      updated.containerNumberTekinn = tekinn;
-      updated.containerNumberSettur = settur;
+      // Sami gámur tekinn og settur aftur = í raun Losa gám
+      if (tekinn === settur && tekinn !== 'Nei') {
+        const isKarSkipta = job.jobType === 'skipta-kari';
+        updated.jobType = isKarSkipta ? 'losa-kar' : 'losa';
+        updated.jobTypeLabel = isKarSkipta ? 'Losa kar' : 'Losa gám';
+        updated.containerNumber = tekinn;
+        updated.containerNumberTekinn = null;
+        updated.containerNumberSettur = null;
+        convertedToLosa = true;
+      } else {
+        updated.containerNumberTekinn = tekinn;
+        updated.containerNumberSettur = settur;
+      }
     } else {
       const num = (document.getElementById('complete-container-' + id) || { value: '' }).value.trim();
       if (!num) { showToast('Sláðu inn ' + unitName); return; }
@@ -2179,7 +2191,7 @@
       updated.rentalProcessed = true;
     }
     await fsSetJob(updated);
-    showToast('Verkefni skráð sem lokið ✓');
+    showToast(convertedToLosa ? 'Sami gámur — skráð sem Losa gám ✓' : 'Verkefni skráð sem lokið ✓');
   };
 
   function draftCard(job) {
