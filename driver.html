@@ -341,7 +341,7 @@
         Útköllun<span class="nav-badge hidden" id="utkolun-badge">0</span>
       </button>
       <button class="nav-tab" id="tab-vinnsla" onclick="switchTab('vinnsla')">Í vinnslu</button>
-      <button class="nav-tab" id="tab-klarud" onclick="switchTab('klarud')">Kláruð verkefni</button>
+      <button class="nav-tab" id="tab-klarud" onclick="switchTab('klarud')">Kláraðar beiðnir</button>
     </div>
 
     <!-- Tab panels -->
@@ -445,6 +445,10 @@
   let _delayImageData = null;
 
   function nameMatch(a, b) { return a && b && a.trim().toLowerCase() === b.trim().toLowerCase(); }
+  function todayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
 
   // ── THEME TOGGLE ───────────────────────────────────────────────────────────
   function applyTheme(theme) {
@@ -577,7 +581,7 @@
     const doneJobs = d.jobs.filter(j =>
       nameMatch(j.driverLabel, currentDriverName) && j.status === 'done'
     ).sort(byNewest);
-    renderList('klarud-list', doneJobs, 'Kláruð verkefni', '✅', 'Engin kláruð verkefni enn');
+    renderList('klarud-list', doneJobs, 'Kláraðar beiðnir', '✅', 'Engar kláraðar beiðnir enn');
 
     // Badge stays until every new job has been acted on
     updateBadge(newJobs.length);
@@ -620,9 +624,9 @@
     // Action block
     let actionBlock = '';
     if (isAll && job.status === 'new') {
-      actionBlock = `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="claimJob('${job.id}')">✓ Taka við verkefni</button></div>`;
+      actionBlock = `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="claimJob('${job.id}')">✓ Taka við beiðni</button></div>`;
     } else if (!isAll && job.status === 'new') {
-      actionBlock = `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="markAccepted('${job.id}')">✓ Samþykkja verkefni</button></div>`;
+      actionBlock = `<div class="status-actions"><button class="btn btn-rust btn-full" onclick="markAccepted('${job.id}')">✓ Samþykkja beiðni</button></div>`;
     } else if (job.status === 'delayed') {
       actionBlock = `
         <div class="delay-info">
@@ -732,7 +736,7 @@
     if (!job) return;
     await fsSetJob({ ...job, driver: currentDriverName.toLowerCase().replace(/\s+/g,'_'), driverLabel: currentDriverName, status: 'accepted' });
     window.switchTab('vinnsla');
-    showToast('✓ Þú hefur tekið við verkefninu');
+    showToast('✓ Þú hefur tekið við beiðninni');
   };
 
   window.markAccepted = async function(id) {
@@ -741,7 +745,7 @@
     if (!job) return;
     await fsSetJob({ ...job, status: 'accepted' });
     window.switchTab('vinnsla');
-    showToast('✓ Verkefni samþykkt');
+    showToast('✓ Beiðni samþykkt');
   };
 
   window.markOnWay = async function(id) {
@@ -761,10 +765,12 @@
   // ── RENTAL LINKING (mirrors director.html logic) ──────────────────────────
   const GAM_JOB_TYPES = ['sekja', 'losa', 'skipta', 'fara'];
 
-  async function applyContainerRentalLogic(job) {
+  async function applyContainerRentalLogic(job, effectiveDate) {
     if (!GAM_JOB_TYPES.includes(job.jobType)) return null;
     const now = new Date().toISOString();
-    const today = now.split('T')[0];
+    // The rental clock uses the date the driver actually did the work
+    // (picked up / placed the container), not when the job was created.
+    const today = effectiveDate || now.split('T')[0];
     const summaries = [];
     const warnings = [];
 
@@ -914,8 +920,12 @@
       updated.containerNumber = num;
     }
     if (completionNote) updated.completionNote = completionNote;
+    // The day the driver finishes the work = the day recorded for the gámur,
+    // so rental length is based on the driver's actual pickup/placement day.
+    const workDate = todayISO();
+    updated.workDate = workDate;
     // Apply rental linking before saving so summaries land on the job
-    const result = await applyContainerRentalLogic(updated);
+    const result = await applyContainerRentalLogic(updated, workDate);
     if (result) {
       if (result.summaries.length) updated.rentalSummaries = result.summaries;
       if (result.warnings.length) updated.rentalWarnings = result.warnings;
@@ -970,7 +980,7 @@
     _delayingJobId = null;
     _delayImageData = null;
     await fsSetJob({ ...job, status: 'delayed', delayNote: note || null, delayImage: _delayImageData || null });
-    showToast('Verkefni frestað ⏸');
+    showToast('Beiðni frestað ⏸');
   };
 
   window.resumeJob = async function(id) {
@@ -980,7 +990,7 @@
     const updated = { ...job, status: 'accepted' };
     delete updated.delayNote; delete updated.delayImage;
     await fsSetJob(updated);
-    showToast('Verkefni haldið áfram ▶');
+    showToast('Beiðni haldið áfram ▶');
   };
 
   window.copyAddress = function(address) {
@@ -997,6 +1007,40 @@
     t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
   }
+
+  // ── SIZE PICK MODAL (asks driver which size when gámanúmer is ambiguous) ──
+  const SIZE_LABELS = { '15m3': '15 m³', 'litill': 'Lítill', 'stor': 'Stór' };
+  let _sizePickResolver = null;
+
+  function askGamurSize(num) {
+    return new Promise((resolve) => {
+      const matches = appData.containers.filter(c => c.id === num);
+      if (matches.length <= 1) { resolve(null); return; }
+      _sizePickResolver = resolve;
+      document.getElementById('spm-num').textContent = num;
+      const opts = matches.map(c => {
+        const sizeText = SIZE_LABELS[c.size] || c.size;
+        const loc = c.status === 'utleigu' && (c.company || c.where)
+          ? `${c.company || ''}${c.company && c.where ? ', ' : ''}${c.where || ''}`
+          : 'Heima';
+        return `<button class="btn btn-rust btn-full" style="margin-top:0.5rem;text-align:left;padding:0.85rem 1rem;line-height:1.3;" onclick="spmPick('${c.size}')">
+          <strong>${sizeText}</strong><br/>
+          <small style="font-weight:400;font-size:0.78rem;opacity:0.9;">${loc}</small>
+        </button>`;
+      }).join('');
+      document.getElementById('spm-options').innerHTML = opts;
+      document.getElementById('size-pick-modal').style.display = 'flex';
+    });
+  }
+
+  window.spmPick = function(size) {
+    document.getElementById('size-pick-modal').style.display = 'none';
+    if (_sizePickResolver) { _sizePickResolver(size); _sizePickResolver = null; }
+  };
+  window.spmCancel = function() {
+    document.getElementById('size-pick-modal').style.display = 'none';
+    if (_sizePickResolver) { _sizePickResolver('CANCEL'); _sizePickResolver = null; }
+  };
 </script>
 </body>
 </html>

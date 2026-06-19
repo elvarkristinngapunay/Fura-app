@@ -369,17 +369,16 @@
   </header>
   <main>
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('jobs', this)">Verkefni</button>
-      <button class="tab-btn" onclick="switchTab('new-job', this)">+ Nýtt</button>
-      <button class="tab-btn" onclick="switchTab('drafts', this)">Vistuð</button>
+      <button class="tab-btn active" onclick="switchTab('jobs', this)">Beiðnir</button>
+      <button class="tab-btn" onclick="switchTab('new-job', this)">+ Ný beiðni</button>
       <button class="tab-btn" onclick="switchTab('geymsla', this)">🗄 Geymsla</button>
-      <button class="tab-btn" id="utleiga-tab-btn" onclick="switchTab('utleiga', this)">🚛 Í útleigu</button>
-      <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Beiðnir</button>
+      <button class="tab-btn" id="utleiga-tab-btn" onclick="switchTab('utleiga', this)">🚛 Gámar</button>
+      <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Bæta við fólki</button>
     </div>
 
     <!-- JOBS -->
     <div class="tab-panel active" id="tab-jobs">
-      <div class="section-heading">Virk verkefni</div>
+      <div class="section-heading">Virkar beiðnir</div>
       <div id="active-jobs-list"></div>
       <div class="section-heading">Lokið</div>
       <div id="done-jobs-list"></div>
@@ -388,7 +387,7 @@
     <!-- NEW JOB -->
     <div class="tab-panel" id="tab-new-job">
       <div class="form-card">
-        <h3>Nýtt verkefni</h3>
+        <h3>Ný beiðni</h3>
 
         <div class="form-group">
           <label>Dagsetning</label>
@@ -417,7 +416,7 @@
         </div>
 
         <div class="form-group">
-          <label>Tegund verkefnis</label>
+          <label>Tegund beiðni</label>
           <div class="option-group" id="job-type-group">
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'sekja')">Taka gám</button>
             <button type="button" class="option-btn" onclick="selectOption('job-type-group', this, 'losa')">Losa gám</button>
@@ -430,7 +429,7 @@
             <button type="button" class="option-btn annad-btn" onclick="selectOption('job-type-group', this, 'annad-type')">Annað</button>
           </div>
           <div class="other-input" id="job-type-other-wrap">
-            <input type="text" id="job-type-other" placeholder="Lýstu tegund verkefnis..." />
+            <input type="text" id="job-type-other" placeholder="Lýstu tegund beiðni..." />
           </div>
         </div>
 
@@ -497,16 +496,10 @@
         </div>
 
         <div class="send-row">
-          <button class="btn btn-outline" onclick="saveJob()">Vista</button>
           <button class="btn btn-outline" onclick="printCurrentForm()">🖨 Prenta</button>
-          <button class="btn btn-rust" onclick="createJob()">Senda verkefni</button>
+          <button class="btn btn-rust" onclick="createJob()">Senda beiðni</button>
         </div>
       </div>
-    </div>
-
-    <!-- DRAFTS -->
-    <div class="tab-panel" id="tab-drafts">
-      <div id="drafts-list"></div>
     </div>
 
     <!-- GEYMSLA -->
@@ -739,7 +732,6 @@
     const active = document.querySelector('.tab-panel.active');
     if (!active) return;
     if (active.id==='tab-jobs')    renderJobsList();
-    if (active.id==='tab-drafts')  renderDrafts();
     if (active.id==='tab-geymsla') renderGeymsla();
     if (active.id==='tab-utleiga') renderBillingPanel();
     updateRequestsBadge();
@@ -949,7 +941,6 @@
     btn.classList.add('active');
     document.getElementById('tab-' + name).classList.add('active');
     if (name === 'jobs') renderJobsList();
-    if (name === 'drafts') renderDrafts();
     if (name === 'new-job') renderDriverButtons();
     if (name === 'requests') renderRequests();
     if (name === 'geymsla') window.clearGeymslaFilters();
@@ -1695,7 +1686,7 @@
       showToast('Fylltu út dagsetningu, fyrirtæki, staðsetningu, síma og bílstjóra');
       return false;
     }
-    if (data.jobType === 'annad-type' && !data.jobTypeLabel) { showToast('Lýstu tegund verkefnis'); return false; }
+    if (data.jobType === 'annad-type' && !data.jobTypeLabel) { showToast('Lýstu tegund beiðni'); return false; }
     if (data.material === 'annad' && !data.materialLabel) { showToast('Lýstu efninu'); return false; }
     if (data.equipment === 'annad-equip' && !data.equipmentLabel) { showToast('Lýstu tækjaþörf'); return false; }
     return true;
@@ -1703,7 +1694,7 @@
 
   function getMissingOptional(data) {
     const missing = [];
-    if (!data.jobType) missing.push('Tegund verkefnis');
+    if (!data.jobType) missing.push('Tegund beiðni');
     if (!data.material) missing.push('Lýsing á efni');
     if (!data.equipment) missing.push('Tækjaþörf');
     return missing;
@@ -1880,22 +1871,10 @@
     }
 
     await fsSetJob(job);
-    showToast(isEdit ? (rerunRental ? 'Verkefni og útleiga uppfærð!' : 'Verkefni uppfært!') : 'Verkefni sent!');
+    showToast(isEdit ? (rerunRental ? 'Beiðni og útleiga uppfærð!' : 'Beiðni uppfærð!') : 'Beiðni send!');
     clearForm();
     window.switchTab('jobs', document.querySelector('.tab-btn'));
   }
-
-  window.saveJob = async function() {
-    const data = collectFormData();
-    const id = _editingJobId || Date.now().toString();
-    const job = { id, ...data, status: 'draft', createdAt: new Date().toISOString() };
-    _editingJobId = null; _editingJobStatus = null;
-    await fsSetJob(job);
-    clearForm();
-    showToast('Verkefni vistað');
-    const draftsBtn = document.querySelectorAll('.tab-btn')[2];
-    window.switchTab('drafts', draftsBtn);
-  };
 
   // ── JOBS ───────────────────────────────────────────────────────────────────
 
@@ -1905,14 +1884,8 @@
     const active = d.jobs.filter(j => ['new','accepted','onway','delayed'].includes(j.status)).sort(byNewest);
     const done = d.jobs.filter(j => j.status === 'done').sort(byNewest);
     // archived jobs are excluded from both lists (they live in Geymsla)
-    document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engin virk verkefni</div>';
-    document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engin lokið verkefni</div>';
-  }
-
-  function renderDrafts() {
-    const d = getData();
-    const drafts = d.jobs.filter(j => j.status === 'draft').sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    document.getElementById('drafts-list').innerHTML = drafts.length ? drafts.map(draftCard).join('') : '<div class="empty-state"><div class="icon">📝</div>Engin vistuð verkefni</div>';
+    document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engar virkar beiðnir</div>';
+    document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engar loknar beiðnir</div>';
   }
 
   function jobCard(job) {
@@ -2016,10 +1989,12 @@
   // GAM_JOB_TYPES: rental clock attached. KAR job types are skipped entirely.
   const GAM_JOB_TYPES = ['sekja', 'losa', 'skipta', 'fara'];
 
-  async function applyContainerRentalLogic(job) {
+  async function applyContainerRentalLogic(job, effectiveDate) {
     if (!GAM_JOB_TYPES.includes(job.jobType)) return null;
     const now = new Date().toISOString();
-    const today = now.split('T')[0];
+    // The rental clock uses the date the work was actually done
+    // (when the driver picked up / placed the container), not the job-creation date.
+    const today = effectiveDate || job.workDate || now.split('T')[0];
     const summaries = [];
     const warnings = [];
 
@@ -2179,62 +2154,19 @@
       updated.containerNumber = num;
     }
     if (note) updated.completionNote = note;
+    // The day the work is marked done = the day recorded for the gámur
+    const workDate = todayISO();
+    updated.workDate = workDate;
     _completingJobId = null;
     // Apply rental linking BEFORE saving the job so we can attach summaries
-    const result = await applyContainerRentalLogic(updated);
+    const result = await applyContainerRentalLogic(updated, workDate);
     if (result) {
       if (result.summaries.length) updated.rentalSummaries = result.summaries;
       if (result.warnings.length) updated.rentalWarnings = result.warnings;
       updated.rentalProcessed = true;
     }
     await fsSetJob(updated);
-    showToast('Verkefni skráð sem lokið ✓');
-  };
-
-  function draftCard(job) {
-    const parts = [job.jobTypeLabel, job.materialLabel, job.equipmentLabel].filter(Boolean);
-    const summary = parts.length ? parts.join(' · ') : 'Verkefni í vinnslu';
-    return `
-      <div class="job-card status-draft">
-        <div class="job-header">
-          <div><div class="job-title">${summary}</div><div class="job-meta">${job.date || 'Dagsetning ekki valin'}</div></div>
-          <span class="status-badge badge-draft">Vistað</span>
-        </div>
-        ${job.company ? `<div class="job-detail"><strong>Fyrirtæki:</strong> ${job.company}</div>` : ''}
-        ${job.where ? `<div class="job-detail"><strong>Staðsetning:</strong> ${job.where}</div>` : ''}
-        ${job.driverLabel ? `<div class="job-detail"><strong>Bílstjóri:</strong> ${job.driverLabel}</div>` : ''}
-        <div class="job-actions">
-          <button class="btn btn-ink btn-sm" onclick="editDraft('${job.id}')">Halda áfram</button>
-          <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
-          <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
-        </div>
-      </div>`;
-  }
-
-  window.editDraft = async function(id) {
-    const d = getData();
-    const job = d.jobs.find(j => j.id === id);
-    if (!job) return;
-    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val || ''; };
-    setVal('job-date', job.date); setVal('job-company', job.company);
-    setVal('job-where', job.where);
-    setVal('job-phone', job.phone); setVal('job-contact', job.contact); setVal('job-notes', job.notes);
-
-    const restoreOption = (groupId, value, wrapId, inputId, label) => {
-      document.querySelectorAll(`#${groupId} .option-btn`).forEach(b => {
-        if (b.dataset.value === value) b.classList.add('selected');
-      });
-      const isOther = ['annad','annad-type','annad-equip'].includes(value);
-      if (wrapId && isOther) { document.getElementById(wrapId).style.display = 'block'; setVal(inputId, label); }
-    };
-    restoreOption('job-type-group', job.jobType, 'job-type-other-wrap', 'job-type-other', job.jobTypeLabel);
-    restoreOption('job-material-group', job.material, 'job-material-other-wrap', 'job-material-other', job.materialLabel);
-    restoreOption('job-equipment-group', job.equipment, 'job-equipment-other-wrap', 'job-equipment-other', job.equipmentLabel);
-
-    await fsDeleteJob(id);
-    renderDriverButtons();
-    window.switchTab('new-job', document.querySelectorAll('.tab-btn')[1]);
-    showToast('Verkefni opnað til breytinga');
+    showToast('Beiðni skráð sem lokin ✓');
   };
 
   window.reopenJob = async function(id) {
@@ -2244,7 +2176,7 @@
     const hasRental = (job.rentalSummaries && job.rentalSummaries.length > 0)
                     || (GAM_JOB_TYPES.includes(job.jobType) && (job.containerNumber || job.containerNumberTekinn || job.containerNumberSettur));
     if (hasRental && GAM_JOB_TYPES.includes(job.jobType)) {
-      const ok = confirm('Þú ert að opna verkefni sem var tengt útleigu.\n\nSkal núllstilla útleiguskráninguna líka?\n\nJá → staðan á gámnum dregst til baka eins og hún var áður.\nNei → blaðið opnast en stöð gámsins helst eins og hún er núna.');
+      const ok = confirm('Þú ert að opna beiðni sem var tengd útleigu.\n\nSkal núllstilla útleiguskráninguna líka?\n\nJá → staðan á gámnum dregst til baka eins og hún var áður.\nNei → blaðið opnast en stöð gámsins helst eins og hún er núna.');
       if (ok) {
         await reverseRentalLogic(job);
       }
@@ -2253,21 +2185,21 @@
     delete updated.containerNumber; delete updated.containerNumberTekinn; delete updated.containerNumberSettur;
     delete updated.rentalSummaries; delete updated.rentalWarnings;
     await fsSetJob(updated);
-    showToast('Verkefni opnað aftur');
+    showToast('Beiðni opnuð aftur');
   };
 
   window.deleteJob = async function(id) {
     const job = appData.jobs.find(j => j.id === id);
     if (!job) return;
     const hasRental = job.rentalSummaries && job.rentalSummaries.length > 0;
-    if (!confirm('Eyða þessu verkefni?')) return;
+    if (!confirm('Eyða þessari beiðni?')) return;
     if (hasRental) {
       const s = job.rentalSummaries[0];
       const wherePart = s.company && s.where ? `${s.company} (${s.where})` : (s.company || s.where || '');
-      const msg = `Þetta verkefni var tengt gámi #${s.containerId} sem fór úr útleigu hjá ${wherePart} í ${daysLabel(s.days)}.\n\nViltu líka breyta stöðu gámsins í útleiguskjalinu?`;
+      const msg = `Þessi beiðni var tengd gámi #${s.containerId} sem fór úr útleigu hjá ${wherePart} í ${daysLabel(s.days)}.\n\nViltu líka breyta stöðu gámsins í útleiguskjalinu?`;
       const goEdit = confirm(msg);
       await fsDeleteJob(id);
-      showToast('Verkefni eytt');
+      showToast('Beiðni eytt');
       if (goEdit) {
         const candidates = appData.containers.filter(c => c.id === s.containerId);
         const target = candidates.find(c => c.company === s.company && c.where === s.where)
@@ -2284,7 +2216,7 @@
       return;
     }
     await fsDeleteJob(id);
-    showToast('Verkefni eytt');
+    showToast('Beiðni eytt');
   };
 
   // ── REQUESTS ───────────────────────────────────────────────────────────────
@@ -2427,7 +2359,7 @@
 <html lang="is">
 <head>
 <meta charset="utf-8" />
-<title>Verkefnablað — ${escHtml(job.company || 'Fura')}</title>
+<title>Beiðnablað — ${escHtml(job.company || 'Fura')}</title>
 <style>
   @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
   * { box-sizing: border-box; }
@@ -2487,7 +2419,7 @@
     <div class="header">
       <div>
         <div class="brand">FURA</div>
-        <div class="brand-sub">Verkefnablað</div>
+        <div class="brand-sub">Beiðnablað</div>
       </div>
       <div class="header-right">Prentað ${escHtml(printedAt)}</div>
     </div>
@@ -2499,9 +2431,9 @@
     </div>
 
     <div class="section">
-      <h2>Verkefnisupplýsingar</h2>
+      <h2>Upplýsingar um beiðni</h2>
       <div class="grid">
-        ${field('Tegund verkefnis', job.jobTypeLabel)}
+        ${field('Tegund beiðni', job.jobTypeLabel)}
         ${field('Staðsetning', job.where)}
         ${field('Sími', job.phone)}
         ${field('Tengill', job.contact)}
@@ -2521,7 +2453,7 @@
 
     <div class="footer">
       <span>Fura Málmendurvinnsla</span>
-      <span>Verkefnablað</span>
+      <span>Beiðnablað</span>
     </div>
   </div>
   <script>
@@ -2552,14 +2484,14 @@
 
   window.printJob = function(id) {
     const job = getData().jobs.find(j => j.id === id);
-    if (!job) { showToast('Verkefni fannst ekki'); return; }
+    if (!job) { showToast('Beiðni fannst ekki'); return; }
     openPrintWindow(job);
   };
 
   window.printCurrentForm = function() {
     const data = collectFormData();
     if (!data.company && !data.where && !data.jobType) {
-      showToast('Fylltu út verkefnið fyrst');
+      showToast('Fylltu út beiðnina fyrst');
       return;
     }
     openPrintWindow({ ...data, status: _editingJobStatus || 'draft' });
@@ -2572,7 +2504,7 @@
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
     await fsSetJob({ ...job, status: 'archived', archivedAt: new Date().toISOString() });
-    showToast('Verkefni fært í geymslu');
+    showToast('Beiðni færð í geymslu');
   };
 
   window.clearGeymslaFilters = function() {
@@ -2625,7 +2557,7 @@
     if (matches.length === 0) {
       listEl.innerHTML = hasFilter
         ? `<div class="empty-state"><div class="icon">🔍</div>Engar skrár fundust</div>`
-        : `<div class="empty-state"><div class="icon">🗄</div>Geymslan er tóm<br><small style="font-size:0.8rem;margin-top:0.5rem;display:block;">Þegar verkefni er lokið getur þú fært það í geymslu</small></div>`;
+        : `<div class="empty-state"><div class="icon">🗄</div>Geymslan er tóm<br><small style="font-size:0.8rem;margin-top:0.5rem;display:block;">Þegar beiðni er lokin getur þú fært hana í geymslu</small></div>`;
       return;
     }
 
@@ -2643,7 +2575,7 @@
           <div class="archive-card-header">
             <div>
               <div class="archive-card-title">${job.jobTypeLabel || '—'}</div>
-              <div class="archive-card-date">Verkefni: ${jobDateFmt}${archivedDate ? ` · Geymsla: ${archivedDate}` : ''}</div>
+              <div class="archive-card-date">Beiðni: ${jobDateFmt}${archivedDate ? ` · Geymsla: ${archivedDate}` : ''}</div>
             </div>
             <span class="status-badge badge-archived">Geymsla</span>
           </div>
@@ -2674,7 +2606,7 @@
     const updated = { ...job, status: 'done' };
     delete updated.archivedAt;
     await fsSetJob(updated);
-    showToast('Verkefni fært til baka í Lokið');
+    showToast('Beiðni færð til baka í Lokið');
   };
 
   window.deleteArchivedJob = async function(id) {
