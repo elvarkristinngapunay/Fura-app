@@ -1913,8 +1913,8 @@
     return `
       <div class="job-card status-${job.status}">
         <div class="job-header">
-          <div>${job.seq ? `<div class="beidni-num">Beiðni #${job.seq}</div>` : ''}<div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div><div class="job-meta">${job.date || '—'}</div></div>
-          <span class="status-badge ${statusBadge[job.status]}">${statusLabel[job.status]}</span>
+          <div><div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div><div class="job-meta">${job.date || '—'}</div></div>
+          <div style="text-align:right;flex-shrink:0;">${job.seq ? `<div class="beidni-num">#${job.seq}</div>` : ''}<span class="status-badge ${statusBadge[job.status]}">${statusLabel[job.status]}</span></div>
         </div>
         <hr class="job-divider"/>
         <div class="job-detail"><strong>Fyrirtæki:</strong> ${job.company || '—'}</div>
@@ -2443,7 +2443,7 @@
 
     <h1>${escHtml(job.company || '—')}</h1>
     <div class="subline">
-      ${job.seq ? `<span><strong>Beiðni #${escHtml(job.seq)}</strong></span>` : ''}
+      ${job.seq ? `<span><strong>#${escHtml(job.seq)}</strong></span>` : ''}
       <span><strong>Dagsetning:</strong> ${escHtml(dateDisplay)}</span>
       <span class="status-tag status-${escHtml(job.status || 'draft')}">${escHtml(statusLabel)}</span>
     </div>
@@ -2592,11 +2592,10 @@
         <div class="archive-card">
           <div class="archive-card-header">
             <div>
-              ${job.seq ? `<div class="beidni-num">Beiðni #${job.seq}</div>` : ''}
               <div class="archive-card-title">${job.jobTypeLabel || '—'}</div>
               <div class="archive-card-date">Dags.: ${jobDateFmt}${archivedDate ? ` · Geymsla: ${archivedDate}` : ''}</div>
             </div>
-            <span class="status-badge badge-archived">Geymsla</span>
+            <div style="text-align:right;flex-shrink:0;">${job.seq ? `<div class="beidni-num">#${job.seq}</div>` : ''}<span class="status-badge badge-archived">Geymsla</span></div>
           </div>
           <div class="archive-detail"><strong>Fyrirtæki:</strong> ${job.company || '—'}</div>
           <div class="archive-detail"><strong>Staðsetning:</strong> ${job.where || '—'}</div>

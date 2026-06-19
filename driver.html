@@ -705,12 +705,11 @@
         </div>
         <div class="job-header">
           <div style="min-width:0;flex:1;">
-            ${job.seq ? `<div class="beidni-num">Beiðni #${job.seq}</div>` : ''}
             <div class="job-title">${job.jobTypeLabel || '—'}</div>
             ${job.company ? `<div class="job-company">${job.company}</div>` : ''}
             <div class="job-date">${job.date || '—'}</div>
           </div>
-          <span class="status-badge ${statusBadgeClass[job.status]}">${statusLabel[job.status]}</span>
+          <div style="text-align:right;flex-shrink:0;">${job.seq ? `<div class="beidni-num">#${job.seq}</div>` : ''}<span class="status-badge ${statusBadgeClass[job.status]}">${statusLabel[job.status]}</span></div>
         </div>
         <hr class="job-divider"/>
         <div class="job-detail">
