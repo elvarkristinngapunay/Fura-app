@@ -225,6 +225,7 @@
     .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
     .job-title { font-size: 1.05rem; font-weight: 800; }
     .job-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+    .beidni-num { font-size: 0.7rem; font-weight: 800; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.15rem; }
     .status-badge { font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
     .badge-draft    { background: #f0eeec; color: var(--muted); }
     .badge-new      { background: #fdecea; color: var(--red); }
@@ -685,7 +686,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-  import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+  import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAdDfbGWGnBHqCxfBQvay36JDXLTPA12SY",
@@ -724,6 +725,17 @@
     await setDoc(doc(db,'containers', key), cleanObj(d));
   }
   async function fsDeleteContainerByKey(key) { await deleteDoc(doc(db,'containers', key)); }
+
+  // Global ever-increasing beiðni counter (never reused, survives deletions).
+  async function nextBeidniNumber() {
+    const ref = doc(db, 'meta', 'counters');
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const cur = (snap.exists() && snap.data().nextBeidni) ? snap.data().nextBeidni : 1;
+      tx.set(ref, { nextBeidni: cur + 1 }, { merge: true });
+      return cur;
+    });
+  }
 
   // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
   onSnapshot(collection(db,'jobs'), snap => {
@@ -1846,6 +1858,11 @@
       ? { ...existing, ...data, id, status, createdAt: existing.createdAt || new Date().toISOString() }
       : { id, ...data, status, createdAt: new Date().toISOString() };
 
+    // Assign a permanent beiðni number to brand-new beiðnir (kept on edits)
+    if (!isEdit && !job.seq) {
+      try { job.seq = await nextBeidniNumber(); } catch (e) { console.error('Seq failed', e); }
+    }
+
     // If editing a Lokid gám job and rental-relevant fields changed,
     // ask the director if útleigu records should also update.
     let rerunRental = false;
@@ -1896,7 +1913,7 @@
     return `
       <div class="job-card status-${job.status}">
         <div class="job-header">
-          <div><div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div><div class="job-meta">${job.date || '—'}</div></div>
+          <div>${job.seq ? `<div class="beidni-num">Beiðni #${job.seq}</div>` : ''}<div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div><div class="job-meta">${job.date || '—'}</div></div>
           <span class="status-badge ${statusBadge[job.status]}">${statusLabel[job.status]}</span>
         </div>
         <hr class="job-divider"/>
@@ -2426,6 +2443,7 @@
 
     <h1>${escHtml(job.company || '—')}</h1>
     <div class="subline">
+      ${job.seq ? `<span><strong>Beiðni #${escHtml(job.seq)}</strong></span>` : ''}
       <span><strong>Dagsetning:</strong> ${escHtml(dateDisplay)}</span>
       <span class="status-tag status-${escHtml(job.status || 'draft')}">${escHtml(statusLabel)}</span>
     </div>
@@ -2574,8 +2592,9 @@
         <div class="archive-card">
           <div class="archive-card-header">
             <div>
+              ${job.seq ? `<div class="beidni-num">Beiðni #${job.seq}</div>` : ''}
               <div class="archive-card-title">${job.jobTypeLabel || '—'}</div>
-              <div class="archive-card-date">Beiðni: ${jobDateFmt}${archivedDate ? ` · Geymsla: ${archivedDate}` : ''}</div>
+              <div class="archive-card-date">Dags.: ${jobDateFmt}${archivedDate ? ` · Geymsla: ${archivedDate}` : ''}</div>
             </div>
             <span class="status-badge badge-archived">Geymsla</span>
           </div>
