@@ -388,7 +388,7 @@
       <button class="tab-btn" onclick="switchTab('new-job', this)">+ Ný beiðni</button>
       <button class="tab-btn" onclick="switchTab('geymsla', this)">🗄 Geymsla</button>
       <button class="tab-btn" id="utleiga-tab-btn" onclick="switchTab('utleiga', this)">🚛 Gámar</button>
-      <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Bæta við fólki</button>
+      <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Bílstjórar</button>
     </div>
 
     <!-- JOBS -->
@@ -978,8 +978,8 @@
     const btn = document.getElementById('requests-tab-btn');
     const existing = btn.querySelector('.badge');
     if (existing) existing.remove();
-    if (count > 0) btn.innerHTML = `Beiðnir <span class="badge">${count}</span>`;
-    else btn.textContent = 'Beiðnir';
+    if (count > 0) btn.innerHTML = `Bílstjórar <span class="badge">${count}</span>`;
+    else btn.textContent = 'Bílstjórar';
   }
 
   // ── Í ÚTLEIGU ─────────────────────────────────────────────────────────────
