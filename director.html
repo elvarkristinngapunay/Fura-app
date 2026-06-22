@@ -234,14 +234,14 @@
     .send-row .btn { flex: 1; }
 
     .job-card { background: var(--white); border-radius: 10px; padding: 1.25rem; margin-bottom: 0.75rem; border-left: 4px solid var(--mid); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-    .job-row { display: grid; grid-template-columns: 130px 1fr; gap: 1rem; align-items: start; margin-bottom: 0.75rem; }
+    .job-row { display: grid; grid-template-columns: 65px 1fr; gap: 0.6rem; align-items: start; margin-bottom: 0.75rem; }
     .job-row-side { padding-top: 1.5rem; text-align: right; }
     .job-row-card { min-width: 0; }
     .job-row-card .job-card { margin-bottom: 0; }
-    .job-day-since { font-size: 0.85rem; font-weight: 800; color: var(--rust); letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.25; }
+    .job-day-since { font-size: 0.72rem; font-weight: 700; color: var(--rust); letter-spacing: 0.02em; text-transform: uppercase; line-height: 1.25; white-space: nowrap; }
     @media (max-width: 700px) {
-      .job-row { grid-template-columns: 80px 1fr; gap: 0.6rem; }
-      .job-day-since { font-size: 0.72rem; }
+      .job-row { grid-template-columns: 50px 1fr; gap: 0.4rem; }
+      .job-day-since { font-size: 0.65rem; }
     }
     .job-card.status-draft    { border-left-color: var(--muted); }
     .job-card.status-new      { border-left-color: var(--red);    box-shadow: 0 1px 6px rgba(192,57,43,0.15); }
@@ -1961,7 +1961,7 @@
     const diff = Math.floor((tMid - cMid) / 86400000);
     if (diff <= 0) return 'Í dag';
     if (diff === 1) return 'Í gær';
-    return `Fyrir ${diff} dögum`;
+    return `${diff} dagar`;
   }
 
   function wrapJobRow(job) {
