@@ -826,7 +826,8 @@
         containerId: c.id, company: c.company || '', where: c.where || '',
         placedAt: c.placedAt, returnedAt: today,
         days: Math.max(0, Math.floor((new Date(today + 'T00:00:00') - new Date(c.placedAt + 'T00:00:00')) / 86400000)),
-        efni: c.efni || '', efniLabel: c.efniLabel || ''
+        efni: c.efni || '', efniLabel: c.efniLabel || '',
+        jobType: job.jobType
       } : null;
       const updated = { ...c, status: 'heima', company: '', where: '', placedAt: null, efni: '', efniLabel: '', updatedAt: now };
       return { updated, summary };

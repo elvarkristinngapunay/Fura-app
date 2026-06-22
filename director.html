@@ -116,6 +116,16 @@
     .rental-summary-line:last-of-type { margin-bottom: 0.4rem; }
     .rental-summary-line .rental-dates { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
     .rental-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; justify-content: flex-end; }
+    .rental-jobtype { display: inline-block; background: var(--rust); color: #fff; font-size: 0.62rem; font-weight: 800; padding: 0.12rem 0.5rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 0.4rem; vertical-align: middle; }
+    [data-theme="dark"] .rental-jobtype { background: #b8552a; }
+    .rental-copy-row { margin-top: 0.45rem; }
+    .rental-copy-btn { background: #1a6bb5; color: #fff; border: none; padding: 0.4rem 0.85rem; border-radius: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .rental-copy-btn:hover { background: #155a9a; }
+    .rental-copy-btn.copied { background: var(--green); }
+    .billing-jobtype { display: inline-block; background: var(--rust); color: #fff; font-size: 0.6rem; font-weight: 800; padding: 0.1rem 0.45rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em; margin-left: 0.3rem; vertical-align: middle; }
+    [data-theme="dark"] .billing-jobtype { background: #b8552a; }
+    .billing-card-copy { margin-top: 0.55rem; }
+    .billing-card-copy .rental-copy-btn { width: 100%; }
     .rental-warning { margin-top: 0.6rem; padding: 0.55rem 0.85rem; background: #fef4e5; border-left: 3px solid var(--yellow); border-radius: 4px; color: #8a5a2b; font-size: 0.82rem; font-weight: 600; }
     [data-theme="dark"] .rental-warning { background: #4a3a2a; color: #d4a878; }
     .rental-saved { margin-top: 0.75rem; padding: 0.5rem 0.85rem; background: #eaf4ec; color: var(--green); font-size: 0.78rem; font-weight: 700; border-radius: 5px; text-align: center; }
@@ -1058,13 +1068,17 @@
       const returnedFmt = fmtIcelandicDate(s.returnedAt);
       const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
       const wherePart = s.company && s.where ? `${escHtml(s.company)} — ${escHtml(s.where)}` : escHtml(s.company || s.where || '—');
+      const jobTypeText = jobTypeRentalLabel(s.jobType);
       return `<div class="billing-card">
         <div class="billing-card-title">⏱ Heimkomið — vantar skráningu</div>
-        <div class="billing-card-num">Gámur #${escHtml(s.containerId)}</div>
+        <div class="billing-card-num">Gámur #${escHtml(s.containerId)}${jobTypeText ? ` <span class="billing-jobtype">${jobTypeText}</span>` : ''}</div>
         <div class="billing-card-line"><strong>📍 ${wherePart}</strong></div>
         <div class="billing-card-line">⏱ <strong>${daysLabel(s.days)}</strong></div>
         <div class="billing-card-line muted">${placedFmt} → ${returnedFmt}</div>
         ${efniText ? `<div class="billing-card-line">♻ <span class="billing-efni">${escHtml(efniText)}</span></div>` : ''}
+        <div class="billing-card-copy">
+          <button class="rental-copy-btn" data-num="${escHtml(s.containerId)}" data-from="${placedFmt}" data-to="${returnedFmt}" data-days="${s.days}" onclick="copyRentalRow(this)">📋 Afrita fyrir Excel</button>
+        </div>
         <div class="billing-card-actions" style="display:flex;gap:0.4rem;">
           <button class="btn btn-outline btn-sm" style="flex:1;" onclick="editJob('${escHtml(s.jobId)}')">Breyta</button>
           <button class="btn btn-green btn-sm" style="flex:1;" onclick="markBillingDone('${escHtml(s.jobId)}','${escHtml(s.containerId).replace(/'/g, "\\'")}','${escHtml(s.placedAt)}')">✓ Búið að skrá</button>
@@ -1304,14 +1318,16 @@
       html += warnings.map(w => `<div class="rental-warning">⚠ ${escHtml(w)}</div>`).join('');
     }
     if (summaries.length > 0) {
-      const items = summaries.map(s => {
+      const items = summaries.map((s, i) => {
         const placedFmt = fmtIcelandicDate(s.placedAt);
         const returnedFmt = fmtIcelandicDate(s.returnedAt);
         const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
         const wherePart = s.company && s.where ? `${s.company} (${s.where})` : (s.company || s.where || '');
+        const jobTypeText = jobTypeRentalLabel(s.jobType);
         return `<div class="rental-summary-line">
-          <div><strong>Gámur #${escHtml(s.containerId)}</strong> var hjá <strong>${escHtml(wherePart)}</strong> í <strong>${daysLabel(s.days)}</strong></div>
+          <div><strong>Gámur #${escHtml(s.containerId)}</strong> var hjá <strong>${escHtml(wherePart)}</strong> í <strong>${daysLabel(s.days)}</strong>${jobTypeText ? ` <span class="rental-jobtype">${jobTypeText}</span>` : ''}</div>
           <div class="rental-dates">${placedFmt} → ${returnedFmt}${efniText ? ` · Efni: <strong>${escHtml(efniText)}</strong>` : ''}</div>
+          <div class="rental-copy-row"><button class="rental-copy-btn" data-num="${escHtml(s.containerId)}" data-from="${placedFmt}" data-to="${returnedFmt}" data-days="${s.days}" onclick="copyRentalRow(this)">📋 Afrita fyrir Excel</button></div>
         </div>`;
       }).join('');
       const anyNotSaved = summaries.some(s => !s.inBillingPanel);
@@ -1322,6 +1338,27 @@
     }
     return html;
   }
+
+  function jobTypeRentalLabel(jt) {
+    return ({ sekja: 'Gámur tekinn', losa: 'Gámur losaður', skipta: 'Gámar skiptir', fara: 'Vantar gám' })[jt] || '';
+  }
+
+  window.copyRentalRow = function(btn) {
+    const text = `${btn.dataset.num}\t${btn.dataset.from}\t${btn.dataset.to}\t${btn.dataset.days}`;
+    const flash = () => {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Afritað';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+    };
+    navigator.clipboard.writeText(text).then(flash).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      flash();
+    });
+  };
 
   window.rentalVista = async function(jobId) {
     const job = appData.jobs.find(j => j.id === jobId);
@@ -2076,7 +2113,8 @@
         returnedAt: today,
         days: Math.max(0, Math.floor((new Date(today + 'T00:00:00') - new Date(c.placedAt + 'T00:00:00')) / 86400000)),
         efni: c.efni || '',
-        efniLabel: c.efniLabel || ''
+        efniLabel: c.efniLabel || '',
+        jobType: job.jobType
       } : null;
       const updated = { ...c, status: 'heima', company: '', where: '', placedAt: null, efni: '', efniLabel: '', updatedAt: now };
       return { updated, summary };
