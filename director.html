@@ -1074,7 +1074,7 @@
       const wherePart = s.company && s.where ? `${escHtml(s.company)} — ${escHtml(s.where)}` : escHtml(s.company || s.where || '—');
       const jobTypeText = jobTypeRentalLabel(s.jobType);
       return `<div class="billing-card">
-        <div class="billing-card-title">⏱ Heimkomið — vantar skráningu</div>
+        <div class="billing-card-title">Vantar skráningu</div>
         <div class="billing-card-num">Gámur #${escHtml(s.containerId)}</div>
         ${jobTypeText ? `<div class="billing-card-line billing-jobtype-line">🚛 <strong>${jobTypeText}</strong></div>` : ''}
         <div class="billing-card-line"><strong>📍 ${wherePart}</strong></div>
