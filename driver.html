@@ -209,6 +209,9 @@
     .job-detail { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.55rem; display: flex; gap: 0.5rem; align-items: flex-start; }
     .job-detail:last-child { margin-bottom: 0; }
     .job-detail strong { color: var(--ink); min-width: 90px; flex-shrink: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; padding-top: 0.1rem; }
+    .job-detail.job-detail-filled { font-size: 0.95rem; color: var(--ink); }
+    .job-detail.job-detail-empty { font-size: 0.82rem; opacity: 0.5; }
+    .job-day-since { font-size: 0.8rem; font-weight: 800; color: var(--rust); letter-spacing: 0.04em; margin-bottom: 0.4rem; }
     .phone-link { color: var(--rust); text-decoration: none; font-weight: 700; font-size: 1rem; }
     .annad-tag { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; border-radius: 5px; padding: 0.15rem 0.5rem; font-weight: 700; font-size: 0.85rem; }
     .job-image { width: 100%; border-radius: 8px; margin-top: 0.75rem; max-height: 220px; object-fit: cover; border: 1.5px solid var(--mid); display: block; }
@@ -552,6 +555,19 @@
     );
   }
 
+  function relativeDayLabel(iso) {
+    if (!iso) return '';
+    const created = new Date(iso);
+    if (isNaN(created)) return '';
+    const today = new Date();
+    const cMid = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+    const tMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const diff = Math.floor((tMid - cMid) / 86400000);
+    if (diff <= 0) return 'Í dag';
+    if (diff === 1) return 'Í gær';
+    return `Fyrir ${diff} dögum`;
+  }
+
   function updateBadge(count) {
     const badge = document.getElementById('utkolun-badge');
     if (count > 0) {
@@ -568,8 +584,9 @@
     const d = getData();
     const byNewest = (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '');
 
-    // Útköllun — new jobs not yet accepted
-    const newJobs = getNewJobs(d).sort(byNewest);
+    // Útköllun — new jobs not yet accepted; oldest first so longest-waiting are at top
+    const byOldest = (a, b) => (a.createdAt || '').localeCompare(b.createdAt || '');
+    const newJobs = getNewJobs(d).sort(byOldest);
     renderList('utkolun-list', newJobs, 'Útköllun', '🔔', 'Engar nýjar útköllur');
 
     // Í vinnslu — accepted, onway, or delayed
@@ -698,8 +715,11 @@
         </div>
       </div>` : '';
 
+    const dayLabel = job.status === 'new' ? relativeDayLabel(job.createdAt) : '';
+    const cls = (val) => val ? 'job-detail-filled' : 'job-detail-empty';
     return `
       <div class="job-card ${cardClass}">
+        ${dayLabel ? `<div class="job-day-since">${dayLabel}</div>` : ''}
         <div style="margin-bottom:0.75rem;">
           <span class="recipient-tag ${recipientClass}">${recipientLabel}</span>
         </div>
@@ -712,18 +732,18 @@
           <div style="text-align:right;flex-shrink:0;">${job.seq ? `<div class="beidni-num">#${job.seq}</div>` : ''}<span class="status-badge ${statusBadgeClass[job.status]}">${statusLabel[job.status]}</span></div>
         </div>
         <hr class="job-divider"/>
-        <div class="job-detail">
+        <div class="job-detail ${cls(job.where)}">
           <strong>Staðsetning</strong>
           <span style="flex:1;">${job.where || '—'}</span>
           ${job.where ? `<button class="copy-btn" onclick="copyAddress('${job.where.replace(/'/g, "\\'")}')">📋 Afrita</button>` : ''}
         </div>
-        ${job.locationExtra ? `<div class="job-detail"><strong>Annað</strong> ${job.locationExtra}</div>` : ''}
-        ${job.phone ? `<div class="job-detail"><strong>Sími</strong> <a class="phone-link" href="tel:${job.phone}">${job.phone}</a></div>` : ''}
-        ${job.contact ? `<div class="job-detail"><strong>Tengill</strong> ${job.contact}</div>` : ''}
+        ${job.locationExtra ? `<div class="job-detail job-detail-filled"><strong>Annað</strong> ${job.locationExtra}</div>` : ''}
+        <div class="job-detail ${cls(job.phone)}"><strong>Sími</strong> ${job.phone ? `<a class="phone-link" href="tel:${job.phone}">${job.phone}</a>` : '—'}</div>
+        <div class="job-detail ${cls(job.contact)}"><strong>Tengill</strong> ${job.contact || '—'}</div>
         <hr class="job-divider"/>
-        <div class="job-detail"><strong>Efni</strong> ${job.material === 'annad' ? `<span class="annad-tag">${job.materialLabel}</span>` : (job.materialLabel || '—')}</div>
-        <div class="job-detail"><strong>Tækjaþörf</strong> ${job.equipment === 'annad-equip' ? `<span class="annad-tag">${job.equipmentLabel}</span>` : (job.equipmentLabel || '—')}</div>
-        ${job.notes ? `<div class="job-detail"><strong>Athugasemd</strong> ${job.notes}</div>` : ''}
+        <div class="job-detail ${cls(job.materialLabel)}"><strong>Efni</strong> ${job.material === 'annad' ? `<span class="annad-tag">${job.materialLabel}</span>` : (job.materialLabel || '—')}</div>
+        <div class="job-detail ${cls(job.equipmentLabel)}"><strong>Tækjaþörf</strong> ${job.equipment === 'annad-equip' ? `<span class="annad-tag">${job.equipmentLabel}</span>` : (job.equipmentLabel || '—')}</div>
+        <div class="job-detail ${cls(job.notes)}"><strong>Athugasemd</strong> ${job.notes || '—'}</div>
         ${job.image ? `<img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
         ${doneBlock}
         ${actionBlock}
