@@ -118,6 +118,10 @@
     .rental-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; justify-content: flex-end; }
     .rental-jobtype { display: inline-block; background: var(--rust); color: #fff; font-size: 0.62rem; font-weight: 800; padding: 0.12rem 0.5rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 0.4rem; vertical-align: middle; }
     [data-theme="dark"] .rental-jobtype { background: #b8552a; }
+    .rental-jobtype-line { margin-top: 0.35rem; font-size: 0.85rem; color: var(--rust); }
+    .rental-jobtype-line strong { color: var(--rust); font-weight: 800; }
+    .billing-jobtype-line { color: var(--rust) !important; font-size: 0.85rem !important; margin-top: 0.15rem !important; }
+    .billing-jobtype-line strong { color: var(--rust); font-weight: 800; }
     .rental-copy-row { margin-top: 0.45rem; }
     .rental-copy-btn { background: #1a6bb5; color: #fff; border: none; padding: 0.4rem 0.85rem; border-radius: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
     .rental-copy-btn:hover { background: #155a9a; }
@@ -1045,7 +1049,7 @@
     for (const job of appData.jobs) {
       if (!job.rentalSummaries) continue;
       for (const s of job.rentalSummaries) {
-        if (s.inBillingPanel) items.push({ ...s, jobId: job.id, jobDate: job.date });
+        if (s.inBillingPanel) items.push({ ...s, jobId: job.id, jobDate: job.date, jobType: s.jobType || job.jobType });
       }
     }
     return items.sort((a, b) => (b.returnedAt || '').localeCompare(a.returnedAt || ''));
@@ -1071,7 +1075,8 @@
       const jobTypeText = jobTypeRentalLabel(s.jobType);
       return `<div class="billing-card">
         <div class="billing-card-title">⏱ Heimkomið — vantar skráningu</div>
-        <div class="billing-card-num">Gámur #${escHtml(s.containerId)}${jobTypeText ? ` <span class="billing-jobtype">${jobTypeText}</span>` : ''}</div>
+        <div class="billing-card-num">Gámur #${escHtml(s.containerId)}</div>
+        ${jobTypeText ? `<div class="billing-card-line billing-jobtype-line">🚛 <strong>${jobTypeText}</strong></div>` : ''}
         <div class="billing-card-line"><strong>📍 ${wherePart}</strong></div>
         <div class="billing-card-line">⏱ <strong>${daysLabel(s.days)}</strong></div>
         <div class="billing-card-line muted">${placedFmt} → ${returnedFmt}</div>
@@ -1323,10 +1328,11 @@
         const returnedFmt = fmtIcelandicDate(s.returnedAt);
         const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
         const wherePart = s.company && s.where ? `${s.company} (${s.where})` : (s.company || s.where || '');
-        const jobTypeText = jobTypeRentalLabel(s.jobType);
+        const jobTypeText = jobTypeRentalLabel(s.jobType || job.jobType);
         return `<div class="rental-summary-line">
-          <div><strong>Gámur #${escHtml(s.containerId)}</strong> var hjá <strong>${escHtml(wherePart)}</strong> í <strong>${daysLabel(s.days)}</strong>${jobTypeText ? ` <span class="rental-jobtype">${jobTypeText}</span>` : ''}</div>
+          <div><strong>Gámur #${escHtml(s.containerId)}</strong> var hjá <strong>${escHtml(wherePart)}</strong> í <strong>${daysLabel(s.days)}</strong></div>
           <div class="rental-dates">${placedFmt} → ${returnedFmt}${efniText ? ` · Efni: <strong>${escHtml(efniText)}</strong>` : ''}</div>
+          ${jobTypeText ? `<div class="rental-jobtype-line">🚛 <strong>${jobTypeText}</strong></div>` : ''}
           <div class="rental-copy-row"><button class="rental-copy-btn" data-num="${escHtml(s.containerId)}" data-from="${placedFmt}" data-to="${returnedFmt}" data-days="${s.days}" onclick="copyRentalRow(this)">📋 Afrita fyrir Excel</button></div>
         </div>`;
       }).join('');
