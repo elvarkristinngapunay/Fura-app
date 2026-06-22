@@ -234,6 +234,15 @@
     .send-row .btn { flex: 1; }
 
     .job-card { background: var(--white); border-radius: 10px; padding: 1.25rem; margin-bottom: 0.75rem; border-left: 4px solid var(--mid); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .job-row { display: grid; grid-template-columns: 130px 1fr; gap: 1rem; align-items: start; margin-bottom: 0.75rem; }
+    .job-row-side { padding-top: 1.5rem; text-align: right; }
+    .job-row-card { min-width: 0; }
+    .job-row-card .job-card { margin-bottom: 0; }
+    .job-day-since { font-size: 0.85rem; font-weight: 800; color: var(--rust); letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.25; }
+    @media (max-width: 700px) {
+      .job-row { grid-template-columns: 80px 1fr; gap: 0.6rem; }
+      .job-day-since { font-size: 0.72rem; }
+    }
     .job-card.status-draft    { border-left-color: var(--muted); }
     .job-card.status-new      { border-left-color: var(--red);    box-shadow: 0 1px 6px rgba(192,57,43,0.15); }
     .job-card.status-accepted { border-left-color: var(--yellow); box-shadow: 0 1px 6px rgba(243,156,18,0.15); }
@@ -1942,14 +1951,35 @@
 
   // ── JOBS ───────────────────────────────────────────────────────────────────
 
+  function relativeDayLabel(iso) {
+    if (!iso) return '';
+    const created = new Date(iso);
+    if (isNaN(created)) return '';
+    const today = new Date();
+    const cMid = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+    const tMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const diff = Math.floor((tMid - cMid) / 86400000);
+    if (diff <= 0) return 'Í dag';
+    if (diff === 1) return 'Í gær';
+    return `Fyrir ${diff} dögum`;
+  }
+
+  function wrapJobRow(job) {
+    const day = job.status === 'new' ? relativeDayLabel(job.createdAt) : '';
+    return `<div class="job-row">
+      <div class="job-row-side">${day ? `<div class="job-day-since">${day}</div>` : ''}</div>
+      <div class="job-row-card">${jobCard(job)}</div>
+    </div>`;
+  }
+
   function renderJobsList() {
     const d = getData();
     const byNewest = (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '');
     const active = d.jobs.filter(j => ['new','accepted','onway','delayed'].includes(j.status)).sort(byNewest);
     const done = d.jobs.filter(j => j.status === 'done').sort(byNewest);
     // archived jobs are excluded from both lists (they live in Geymsla)
-    document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(jobCard).join('') : '<div class="empty-state"><div class="icon">📋</div>Engar virkar beiðnir</div>';
-    document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(jobCard).join('') : '<div class="empty-state" style="padding:1rem 0;">Engar loknar beiðnir</div>';
+    document.getElementById('active-jobs-list').innerHTML = active.length ? active.map(wrapJobRow).join('') : '<div class="empty-state"><div class="icon">📋</div>Engar virkar beiðnir</div>';
+    document.getElementById('done-jobs-list').innerHTML = done.length ? done.map(wrapJobRow).join('') : '<div class="empty-state" style="padding:1rem 0;">Engar loknar beiðnir</div>';
   }
 
   function jobCard(job) {

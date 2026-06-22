@@ -211,7 +211,15 @@
     .job-detail strong { color: var(--ink); min-width: 90px; flex-shrink: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; padding-top: 0.1rem; }
     .job-detail.job-detail-filled { font-size: 0.95rem; color: var(--ink); }
     .job-detail.job-detail-empty { font-size: 0.82rem; opacity: 0.5; }
-    .job-day-since { font-size: 0.8rem; font-weight: 800; color: var(--rust); letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+    .job-row { display: grid; grid-template-columns: 90px 1fr; gap: 0.85rem; align-items: start; margin-bottom: 1rem; }
+    .job-row-side { padding-top: 1.5rem; text-align: right; }
+    .job-row-card { min-width: 0; }
+    .job-row-card .job-card { margin-bottom: 0; }
+    .job-day-since { font-size: 0.78rem; font-weight: 800; color: var(--rust); letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.25; }
+    @media (max-width: 500px) {
+      .job-row { grid-template-columns: 64px 1fr; gap: 0.5rem; }
+      .job-day-since { font-size: 0.7rem; }
+    }
     .phone-link { color: var(--rust); text-decoration: none; font-weight: 700; font-size: 1rem; }
     .annad-tag { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; border-radius: 5px; padding: 0.15rem 0.5rem; font-weight: 700; font-size: 0.85rem; }
     .job-image { width: 100%; border-radius: 8px; margin-top: 0.75rem; max-height: 220px; object-fit: cover; border: 1.5px solid var(--mid); display: block; }
@@ -611,7 +619,13 @@
       el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">${icon}</div><p>${emptyMsg}</p></div>`;
       return;
     }
-    el.innerHTML = jobs.map(jobCard).join('');
+    el.innerHTML = jobs.map(j => {
+      const day = j.status === 'new' ? relativeDayLabel(j.createdAt) : '';
+      return `<div class="job-row">
+        <div class="job-row-side">${day ? `<div class="job-day-since">${day}</div>` : ''}</div>
+        <div class="job-row-card">${jobCard(j)}</div>
+      </div>`;
+    }).join('');
   }
 
   function jobCard(job) {
@@ -715,11 +729,9 @@
         </div>
       </div>` : '';
 
-    const dayLabel = job.status === 'new' ? relativeDayLabel(job.createdAt) : '';
     const cls = (val) => val ? 'job-detail-filled' : 'job-detail-empty';
     return `
       <div class="job-card ${cardClass}">
-        ${dayLabel ? `<div class="job-day-since">${dayLabel}</div>` : ''}
         <div style="margin-bottom:0.75rem;">
           <span class="recipient-tag ${recipientClass}">${recipientLabel}</span>
         </div>
