@@ -214,8 +214,13 @@
     main { padding: 1.5rem 1rem 5rem; max-width: 700px; margin: 0 auto; }
 
     .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--mid); overflow-x: auto; position: sticky; top: 56px; background: var(--warm); z-index: 40; padding-top: 0.5rem; margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
-    .tab-btn { padding: 0.65rem 1rem; font-size: 0.875rem; font-weight: 600; background: none; border: none; cursor: pointer; color: var(--muted); border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: color 0.2s; white-space: nowrap; flex-shrink: 0; }
+    .tab-btn { padding: 0.65rem 1rem; font-size: 0.875rem; font-weight: 600; background: none; border: none; cursor: pointer; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color 0.2s; white-space: nowrap; flex-shrink: 0; }
     .tab-btn.active { color: var(--rust); border-bottom-color: var(--rust); }
+    .tab-btn.tab-primary { font-size: 1rem; font-weight: 700; padding: 0.75rem 1.15rem; }
+    .tab-btn.tab-primary.active { border-bottom-width: 4px; }
+    .tab-btn.tab-secondary { font-size: 0.8rem; font-weight: 600; padding: 0.55rem 0.85rem; opacity: 0.75; }
+    .tab-btn.tab-secondary:hover, .tab-btn.tab-secondary.active { opacity: 1; }
+    .tab-btn.tab-secondary:first-of-type { margin-left: auto; }
     .tab-btn .badge { display: inline-block; background: var(--red); color: #fff; font-size: 0.65rem; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 10px; margin-left: 0.3rem; vertical-align: middle; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
@@ -384,11 +389,11 @@
   </header>
   <main>
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('jobs', this)">Beiðnir</button>
-      <button class="tab-btn" onclick="switchTab('new-job', this)">+ Ný beiðni</button>
-      <button class="tab-btn" onclick="switchTab('geymsla', this)">🗄 Geymsla</button>
-      <button class="tab-btn" id="utleiga-tab-btn" onclick="switchTab('utleiga', this)">🚛 Gámar</button>
-      <button class="tab-btn" id="requests-tab-btn" onclick="switchTab('requests', this)">Bílstjórar</button>
+      <button class="tab-btn tab-primary active" onclick="switchTab('jobs', this)">Beiðnir</button>
+      <button class="tab-btn tab-primary" onclick="switchTab('new-job', this)">+ Ný beiðni</button>
+      <button class="tab-btn tab-primary" id="utleiga-tab-btn" onclick="switchTab('utleiga', this)">🚛 Gámar</button>
+      <button class="tab-btn tab-secondary" onclick="switchTab('geymsla', this)">🗄 Geymsla</button>
+      <button class="tab-btn tab-secondary" id="requests-tab-btn" onclick="switchTab('requests', this)">Bílstjórar</button>
     </div>
 
     <!-- JOBS -->
