@@ -1333,7 +1333,6 @@
           <div><strong>Gámur #${escHtml(s.containerId)}</strong> var hjá <strong>${escHtml(wherePart)}</strong> í <strong>${daysLabel(s.days)}</strong></div>
           <div class="rental-dates">${placedFmt} → ${returnedFmt}${efniText ? ` · Efni: <strong>${escHtml(efniText)}</strong>` : ''}</div>
           ${jobTypeText ? `<div class="rental-jobtype-line">🚛 <strong>${jobTypeText}</strong></div>` : ''}
-          <div class="rental-copy-row"><button class="rental-copy-btn" data-num="${escHtml(s.containerId)}" data-from="${placedFmt}" data-to="${returnedFmt}" data-days="${s.days}" onclick="copyRentalRow(this)">📋 Afrita fyrir Excel</button></div>
         </div>`;
       }).join('');
       const anyNotSaved = summaries.some(s => !s.inBillingPanel);
