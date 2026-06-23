@@ -807,6 +807,19 @@
     const summaries = [];
     const warnings = [];
 
+    // Flag any gámanúmer that has non-digit characters and isn't a known
+    // container in the system — likely a typo, director needs to verify.
+    const existingIds = new Set(appData.containers.map(c => c.id));
+    const checkDirtyNumber = (num) => {
+      if (!num || num === 'Nei') return;
+      if (!/^\d+$/.test(num) && !existingIds.has(num)) {
+        warnings.push(`Gámanúmer "${num}" inniheldur texta og er ekki í kerfinu — gæti verið innsláttarvilla. Athugaðu og leiðréttu með Breyta ef þarf.`);
+      }
+    };
+    checkDirtyNumber(job.containerNumber);
+    checkDirtyNumber(job.containerNumberTekinn);
+    checkDirtyNumber(job.containerNumberSettur);
+
     const findCandidates = (num) => {
       if (!num || num === 'Nei') return [];
       return appData.containers.filter(c => c.id === num);
