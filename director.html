@@ -1733,6 +1733,24 @@
     const materialLabels = { jarn: 'Járn', timbur: 'Timbur', annad: document.getElementById('job-material-other').value.trim() };
     const equipmentLabels = { 'stor-gamur': 'Stór gámur', 'litill-gamur': 'Lítill gámur', krani: 'Krani', pallbill: 'Pallbíll', trailer: 'Trailer', 'annad-equip': document.getElementById('job-equipment-other').value.trim() };
 
+    // Gámanúmer edit fields (only shown when editing a job that already had numbers)
+    const editWrap = document.getElementById('edit-gamanumer-wrap');
+    const editVisible = editWrap && editWrap.style.display !== 'none';
+    const editSetturWrap = document.getElementById('edit-gamanumer-settur-wrap');
+    const setturVisible = editSetturWrap && editSetturWrap.style.display !== 'none';
+    const editVal = editVisible ? document.getElementById('edit-gamanumer').value.trim() : '';
+    const setturVal = setturVisible ? document.getElementById('edit-gamanumer-settur').value.trim() : '';
+
+    const containerFields = {};
+    if (editVisible) {
+      if (setturVisible) {
+        containerFields.containerNumberTekinn = editVal;
+        containerFields.containerNumberSettur = setturVal;
+      } else {
+        containerFields.containerNumber = editVal;
+      }
+    }
+
     return {
       date: document.getElementById('job-date').value,
       company: document.getElementById('job-company').value.trim(),
@@ -1744,7 +1762,8 @@
       equipment, equipmentLabel: equipmentLabels[equipment] || '',
       driver, driverLabel: driver === 'all' ? 'Allir bílstjórar' : (approvedDriver ? approvedDriver.name : (driverLabelMap[driver] || driver)),
       notes: document.getElementById('job-notes').value.trim(),
-      image: _jobImageData || null
+      image: _jobImageData || null,
+      ...containerFields
     };
   }
 
@@ -1787,14 +1806,12 @@
   }
 
   function clearForm() {
-    ['job-company','job-where','job-phone','job-contact','job-notes','job-type-other','job-material-other','job-equipment-other'].forEach(id => document.getElementById(id).value = '');
+    ['job-company','job-where','job-phone','job-contact','job-notes','job-type-other','job-material-other','job-equipment-other','edit-gamanumer','edit-gamanumer-settur'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     document.getElementById('job-date').value = todayISO();
     ['job-type-group','job-material-group','job-equipment-group','job-driver-group'].forEach(g =>
       document.querySelectorAll(`#${g} .option-btn`).forEach(b => b.classList.remove('selected'))
     );
-    ['job-type-other-wrap','job-material-other-wrap','job-equipment-other-wrap'].forEach(id =>
-      document.getElementById(id).style.display = 'none'
-    );
+    ['job-type-other-wrap','job-material-other-wrap','job-equipment-other-wrap','edit-gamanumer-wrap','edit-gamanumer-settur-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
     clearImage();
   }
 
@@ -1827,6 +1844,36 @@
       document.getElementById('image-preview-wrap').style.display = 'block';
     } else {
       clearImage();
+    }
+    // Restore gámanúmer / karnúmer if the job has any (for editing Lokid/older entries)
+    const editWrap = document.getElementById('edit-gamanumer-wrap');
+    const editLabel = document.getElementById('edit-gamanumer-label');
+    const editInput = document.getElementById('edit-gamanumer');
+    const editSetturWrap = document.getElementById('edit-gamanumer-settur-wrap');
+    const editSetturInput = document.getElementById('edit-gamanumer-settur');
+    const isKarJob = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+    const isSkiptaJob = job.jobType === 'skipta' || job.jobType === 'skipta-kari';
+    const unitName = isKarJob ? 'Karnúmer' : 'Gámanúmer';
+    const hasContainerData = !!(job.containerNumber || job.containerNumberTekinn || job.containerNumberSettur);
+    if (hasContainerData) {
+      editWrap.style.display = 'block';
+      if (isSkiptaJob) {
+        editLabel.textContent = `${unitName} — Tekinn`;
+        editInput.value = job.containerNumberTekinn || '';
+        editSetturWrap.style.display = 'block';
+        editSetturInput.value = job.containerNumberSettur || '';
+        const setturLabel = editSetturWrap.querySelector('label');
+        if (setturLabel) setturLabel.textContent = `${unitName} — Settur`;
+      } else {
+        editLabel.textContent = unitName;
+        editInput.value = job.containerNumber || '';
+        editSetturWrap.style.display = 'none';
+        editSetturInput.value = '';
+      }
+    } else {
+      editWrap.style.display = 'none';
+      editInput.value = '';
+      editSetturInput.value = '';
     }
     _editingJobId = id;
     _editingJobStatus = job.status;
