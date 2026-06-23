@@ -769,6 +769,7 @@
   onSnapshot(collection(db,'jobs'), snap => {
     appData.jobs = snap.docs.map(d => ({id:d.id,...d.data()}));
     if (!_loggedIn) return;
+    updateUtleigaCount();
     const active = document.querySelector('.tab-panel.active');
     if (!active) return;
     if (active.id==='tab-jobs')    renderJobsList();
@@ -1047,9 +1048,15 @@
   function updateUtleigaCount() {
     const btn = document.getElementById('utleiga-tab-btn');
     if (!btn) return;
-    const out = appData.containers.filter(c => c.status === 'utleigu').length;
-    if (out > 0) btn.innerHTML = `🚛 Í útleigu <span class="badge" style="background:var(--rust);">${out}</span>`;
-    else btn.innerHTML = '🚛 Í útleigu';
+    // Count only billing items that are waiting to be registered in Excel.
+    // (rentalSummaries with inBillingPanel === true on any job.)
+    let pending = 0;
+    for (const job of appData.jobs) {
+      if (!job.rentalSummaries) continue;
+      for (const s of job.rentalSummaries) if (s.inBillingPanel) pending++;
+    }
+    if (pending > 0) btn.innerHTML = `🚛 Gámar <span class="badge" style="background:var(--rust);">${pending}</span>`;
+    else btn.innerHTML = '🚛 Gámar';
   }
 
   function efniDisplay(c) {
@@ -2063,8 +2070,10 @@
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
         ${job.status === 'done' ? rentalSummaryBlock(job) : ''}
         ${_completingJobId === job.id ? renderCompleteForm(job) : ''}
+        ${_fixingNumberJobId === job.id ? renderFixNumberForm(job) : ''}
         <div class="job-actions">
           <button class="btn btn-outline btn-sm" onclick="editJob('${job.id}')">Breyta</button>
+          ${(job.containerNumber || job.containerNumberTekinn || job.containerNumberSettur) && _fixingNumberJobId !== job.id ? `<button class="btn btn-outline btn-sm" onclick="showFixNumberForm('${job.id}')">✏ Lagfæra ${['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType) ? 'karnúmer' : 'gámanúmer'}</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
           ${(job.status !== 'done' && job.status !== 'archived' && job.status !== 'draft' && _completingJobId !== job.id) ? `<button class="btn btn-green btn-sm" onclick="showCompleteForm('${job.id}')">✓ Klára núna</button>` : ''}
           ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button><button class="btn btn-outline btn-sm" onclick="archiveJob('${job.id}')" style="border-color:var(--muted);color:var(--muted);">🗄 Færa í geymslu</button>` : ''}
@@ -2074,6 +2083,86 @@
   }
 
   let _completingJobId = null;
+  let _fixingNumberJobId = null;
+
+  function renderFixNumberForm(job) {
+    const isKar = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+    const isSkipta = job.jobType === 'skipta' || job.jobType === 'skipta-kari';
+    const unitName = isKar ? 'Karnúmer' : 'Gámanúmer';
+    const inputs = isSkipta
+      ? `
+        <label class="complete-label">${unitName} — Tekinn</label>
+        <input type="text" id="fix-tekinn-${job.id}" class="complete-input" value="${escHtml(job.containerNumberTekinn || '')}" />
+        <label class="complete-label" style="margin-top:0.75rem;">${unitName} — Settur</label>
+        <input type="text" id="fix-settur-${job.id}" class="complete-input" value="${escHtml(job.containerNumberSettur || '')}" />`
+      : `
+        <label class="complete-label">${unitName}</label>
+        <input type="text" id="fix-container-${job.id}" class="complete-input" value="${escHtml(job.containerNumber || '')}" />`;
+    return `
+      <div class="complete-form">
+        <div class="complete-form-title">✏ Lagfæra ${unitName.toLowerCase()}</div>
+        ${inputs}
+        <div class="complete-form-actions">
+          <button class="btn btn-outline btn-sm" onclick="cancelFixNumber()">Hætta við</button>
+          <button class="btn btn-green btn-sm" onclick="saveFixNumber('${job.id}', ${isSkipta})">Vista</button>
+        </div>
+      </div>`;
+  }
+
+  window.showFixNumberForm = function(id) {
+    _fixingNumberJobId = id;
+    _completingJobId = null;
+    renderJobsList();
+  };
+  window.cancelFixNumber = function() {
+    _fixingNumberJobId = null;
+    renderJobsList();
+  };
+  window.saveFixNumber = async function(id, isSkipta) {
+    const job = appData.jobs.find(j => j.id === id);
+    if (!job) return;
+    const isKar = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+    let newNum = '', newTekinn = '', newSettur = '';
+    if (isSkipta) {
+      newTekinn = (document.getElementById('fix-tekinn-' + id) || {value:''}).value.trim();
+      newSettur = (document.getElementById('fix-settur-' + id) || {value:''}).value.trim();
+      if (!newTekinn || !newSettur) { showToast('Sláðu inn bæði númer'); return; }
+    } else {
+      newNum = (document.getElementById('fix-container-' + id) || {value:''}).value.trim();
+      if (!newNum) { showToast('Sláðu inn númer'); return; }
+    }
+    const changed = isSkipta
+      ? (newTekinn !== (job.containerNumberTekinn || '') || newSettur !== (job.containerNumberSettur || ''))
+      : (newNum !== (job.containerNumber || ''));
+    if (!changed) { _fixingNumberJobId = null; renderJobsList(); return; }
+
+    const updated = { ...job };
+    if (isSkipta) {
+      updated.containerNumberTekinn = newTekinn;
+      updated.containerNumberSettur = newSettur;
+    } else {
+      updated.containerNumber = newNum;
+    }
+
+    // If this is a Lokid gám job, ask whether útleigu should be re-synced
+    if (job.status === 'done' && GAM_JOB_TYPES.includes(job.jobType)) {
+      const ok = confirm(`Skal uppfæra útleiguskráninguna með nýja ${isKar ? 'karnúmeri' : 'gámanúmeri'} líka?\n\nJá → kerfið dregur gömlu skráninguna til baka og reiknar upp á nýtt.\nNei → bara verkefnaspjaldið breytist, gámsstaðan helst eins.`);
+      if (ok) {
+        await reverseRentalLogic(job);
+        delete updated.rentalSummaries;
+        delete updated.rentalWarnings;
+        const result = await applyContainerRentalLogic(updated);
+        if (result) {
+          if (result.summaries.length) updated.rentalSummaries = result.summaries;
+          if (result.warnings.length) updated.rentalWarnings = result.warnings;
+        }
+      }
+    }
+
+    _fixingNumberJobId = null;
+    await fsSetJob(updated);
+    showToast(`${isKar ? 'Karnúmer' : 'Gámanúmer'} uppfært ✓`);
+  };
 
   function renderCompleteForm(job) {
     const isSkipta = job.jobType === 'skipta' || job.jobType === 'skipta-kari';
