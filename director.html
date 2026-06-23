@@ -267,6 +267,32 @@
     .badge-archived { background: #f0eeec; color: var(--muted); }
 
     .delay-info-dir { margin-top:0.5rem; padding:0.6rem 0.8rem; background:#f5ede3; border-radius:8px; border-left:3px solid #7a4f2c; font-size:0.875rem; }
+    /* Director-added Athugasemd (blue, subtle) */
+    .director-note-box { margin-top: 0.6rem; padding: 0.55rem 0.85rem; background: #eef4fb; border-left: 3px solid var(--blue); border-radius: 6px; }
+    .director-note-label { font-size: 0.68rem; font-weight: 800; color: var(--blue); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.2rem; }
+    .director-note-body { font-size: 0.9rem; color: var(--ink); line-height: 1.45; white-space: pre-wrap; }
+    [data-theme="dark"] .director-note-box { background: #1f3a55; }
+    [data-theme="dark"] .director-note-body { color: #cfe2f5; }
+    /* Driver-added completion note (rust, prominent) */
+    .driver-note-box { margin-top: 0.6rem; padding: 0.55rem 0.85rem; background: #fdf2ec; border-left: 3px solid var(--rust); border-radius: 6px; }
+    .driver-note-label { font-size: 0.68rem; font-weight: 800; color: var(--rust); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.2rem; }
+    .driver-note-body { font-size: 0.9rem; color: var(--ink); line-height: 1.45; white-space: pre-wrap; }
+    [data-theme="dark"] .driver-note-box { background: #3a2920; }
+    [data-theme="dark"] .driver-note-body { color: #f0d4c5; }
+    /* Gámanúmer callout — distinct green block */
+    .gam-num-row { display: flex; gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap; }
+    .gam-num-row .gam-num-box { flex: 1; min-width: 140px; }
+    .gam-num-box { margin-top: 0.6rem; padding: 0.55rem 0.9rem; background: #eaf4ec; border: 2px solid var(--green); border-radius: 8px; }
+    .gam-num-label { font-size: 0.68rem; font-weight: 800; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.1rem; }
+    .gam-num-value { font-size: 1.4rem; font-weight: 900; color: var(--green); letter-spacing: 0.02em; }
+    [data-theme="dark"] .gam-num-box { background: #2a3a2e; }
+    [data-theme="dark"] .gam-num-label, [data-theme="dark"] .gam-num-value { color: #80c090; }
+    /* Dirty gámanúmer — yellow warning variant */
+    .gam-num-box.gam-num-warn { background: #fef4e5; border-color: var(--yellow); }
+    .gam-num-warn .gam-num-label, .gam-num-warn .gam-num-value { color: #8a5a2b; }
+    .gam-num-dirty-tag { margin-top: 0.35rem; font-size: 0.7rem; font-weight: 700; color: #8a5a2b; line-height: 1.3; }
+    [data-theme="dark"] .gam-num-box.gam-num-warn { background: #4a3a2a; }
+    [data-theme="dark"] .gam-num-warn .gam-num-label, [data-theme="dark"] .gam-num-warn .gam-num-value, [data-theme="dark"] .gam-num-dirty-tag { color: #d4a878; }
     .delay-info-dir strong { font-size:0.72rem; font-weight:800; color:#5c3310; text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:0.2rem; }
 
     .driver-status-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.2rem; }
@@ -2075,9 +2101,27 @@
             <span class="driver-tag ${driverTagClass[job.status]}">${driverTagText[job.status]}</span>
           </div>
         </div>
-        ${job.notes ? `<div class="job-detail"><strong>Athugasemd:</strong> ${job.notes}</div>` : ''}
-        ${(() => { const k = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType); const s = k?'Kar':'Gám'; const l = k?'Karnúmer':'Gámanúmer'; return job.containerNumberTekinn ? `<div class="job-detail"><strong>${s} tekinn:</strong> <strong style="color:var(--green)">${job.containerNumberTekinn}</strong></div><div class="job-detail"><strong>${s} settur:</strong> <strong style="color:var(--green)">${job.containerNumberSettur || '—'}</strong></div>` : job.containerNumber ? `<div class="job-detail"><strong>${l}:</strong> <strong style="color:var(--green)">${job.containerNumber}</strong></div>` : ''; })()}
-        ${job.completionNote ? `<div class="delay-info-dir" style="border-left-color:var(--rust);background:#fff8f6;"><strong>⚠️ Athugasemd bílstjóra</strong>${job.completionNote}</div>` : ''}
+        ${job.notes ? `<div class="director-note-box"><div class="director-note-label">📝 Athugasemd frá stjórnanda</div><div class="director-note-body">${escHtml(job.notes)}</div></div>` : ''}
+        ${(() => {
+          const k = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+          const unitShort = k ? 'Kar' : 'Gám';
+          const unitLong = k ? 'Karnúmer' : 'Gámanúmer';
+          const isDirty = (n) => n && n !== 'Nei' && !/^\d+$/.test(n) && !appData.containers.some(c => c.id === n);
+          const numBox = (label, num, dirty) => `<div class="gam-num-box${dirty ? ' gam-num-warn' : ''}">
+            <div class="gam-num-label">${label}</div>
+            <div class="gam-num-value">${escHtml(num || '—')}</div>
+            ${dirty ? `<div class="gam-num-dirty-tag">⚠ Inniheldur texta — ekki tengt raunverulegum gám</div>` : ''}
+          </div>`;
+          if (job.containerNumberTekinn) {
+            const dirtyT = isDirty(job.containerNumberTekinn);
+            const dirtyS = isDirty(job.containerNumberSettur);
+            return `<div class="gam-num-row">${numBox(`${unitShort} tekinn`, job.containerNumberTekinn, dirtyT)}${numBox(`${unitShort} settur`, job.containerNumberSettur, dirtyS)}</div>`;
+          } else if (job.containerNumber) {
+            return numBox(unitLong, job.containerNumber, isDirty(job.containerNumber));
+          }
+          return '';
+        })()}
+        ${job.completionNote ? `<div class="driver-note-box"><div class="driver-note-label">💬 Athugasemd frá bílstjóra</div><div class="driver-note-body">${escHtml(job.completionNote)}</div></div>` : ''}
         ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
         ${job.status === 'done' ? rentalSummaryBlock(job) : ''}
