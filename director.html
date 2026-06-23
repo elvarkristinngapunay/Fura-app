@@ -2139,7 +2139,7 @@
           <div>
             <div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div>
             <div class="job-dates">
-              <div class="job-date-line"><span class="job-date-label">Send út</span> ${fmtDateTime(job.createdAt)}</div>
+              <div class="job-date-line"><span class="job-date-label">Sent út</span> ${fmtDateTime(job.createdAt)}</div>
               ${job.status === 'done' && job.completedAt ? `<div class="job-date-line"><span class="job-date-label job-date-done">Klárað</span> ${fmtDateTime(job.completedAt)}</div>` : ''}
             </div>
           </div>
@@ -2935,7 +2935,7 @@
             <div>
               <div class="archive-card-title">${job.jobTypeLabel || '—'}</div>
               <div class="job-dates" style="margin-top:0.3rem;">
-                <div class="job-date-line"><span class="job-date-label">Send út</span> ${fmtDateTime(job.createdAt)}</div>
+                <div class="job-date-line"><span class="job-date-label">Sent út</span> ${fmtDateTime(job.createdAt)}</div>
                 ${job.completedAt ? `<div class="job-date-line"><span class="job-date-label job-date-done">Klárað</span> ${fmtDateTime(job.completedAt)}</div>` : ''}
               </div>
             </div>
