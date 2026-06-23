@@ -260,6 +260,11 @@
     .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
     .job-title { font-size: 1.05rem; font-weight: 800; }
     .job-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+    .job-dates { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; line-height: 1.5; }
+    .job-date-line { display: flex; gap: 0.4rem; align-items: baseline; }
+    .job-date-label { font-size: 0.6rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; min-width: 56px; }
+    .job-date-label.job-date-done { color: var(--green); }
+    .job-date-line:has(.job-date-done) { color: var(--ink); font-weight: 600; }
     .beidni-num { font-size: 0.7rem; font-weight: 800; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.15rem; }
     .status-badge { font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
     .badge-draft    { background: #f0eeec; color: var(--muted); }
@@ -1044,6 +1049,17 @@
   const sergerdLabels = { 'timburgamur': 'Timburgámur', 'lokadur': 'Lokaður' };
   const efniLabels = { 'jarn': 'Járn', 'timbur': 'Timbur', 'annad': 'Annað' };
 
+  function fmtDateTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const min = String(d.getMinutes()).padStart(2,'0');
+    return `${dd}.${mm}.${yyyy} kl. ${hh}:${min}`;
+  }
   function fmtIcelandicDate(iso) {
     if (!iso) return '—';
     const [y, m, d] = iso.split('-');
@@ -2120,7 +2136,13 @@
     return `
       <div class="job-card status-${job.status}">
         <div class="job-header">
-          <div><div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div><div class="job-meta">${job.date || '—'}</div></div>
+          <div>
+            <div class="job-title">${job.jobType === 'annad-type' ? `<span class="annad-tag">${job.jobTypeLabel}</span>` : (job.jobTypeLabel || '—')}</div>
+            <div class="job-dates">
+              <div class="job-date-line"><span class="job-date-label">Send út</span> ${fmtDateTime(job.createdAt)}</div>
+              ${job.status === 'done' && job.completedAt ? `<div class="job-date-line"><span class="job-date-label job-date-done">Klárað</span> ${fmtDateTime(job.completedAt)}</div>` : ''}
+            </div>
+          </div>
           <div style="text-align:right;flex-shrink:0;">${job.seq ? `<div class="beidni-num">#${job.seq}</div>` : ''}<span class="status-badge ${statusBadge[job.status]}">${statusLabel[job.status]}</span></div>
         </div>
         <hr class="job-divider"/>
@@ -2478,7 +2500,7 @@
     if (!job) return;
     const isKarJob = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
     const unitName = isKarJob ? 'karnúmer' : 'gámanúmer';
-    const updated = { ...job, status: 'done' };
+    const updated = { ...job, status: 'done', completedAt: new Date().toISOString() };
     const note = (document.getElementById('complete-note-' + id) || { value: '' }).value.trim();
     if (isSkipta) {
       const tekinn = (document.getElementById('complete-tekinn-' + id) || { value: '' }).value.trim();
@@ -2901,8 +2923,6 @@
     }
 
     listEl.innerHTML = matches.map(job => {
-      const archivedDate = job.archivedAt ? new Date(job.archivedAt).toLocaleDateString('is-IS', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-      const jobDateFmt = job.date || '—';
       const isKarArc = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
       const sArc = isKarArc ? 'Kar' : 'Gám';
       const lArc = isKarArc ? 'Karnúmer' : 'Gámanúmer';
@@ -2914,7 +2934,10 @@
           <div class="archive-card-header">
             <div>
               <div class="archive-card-title">${job.jobTypeLabel || '—'}</div>
-              <div class="archive-card-date">Dags.: ${jobDateFmt}${archivedDate ? ` · Geymsla: ${archivedDate}` : ''}</div>
+              <div class="job-dates" style="margin-top:0.3rem;">
+                <div class="job-date-line"><span class="job-date-label">Send út</span> ${fmtDateTime(job.createdAt)}</div>
+                ${job.completedAt ? `<div class="job-date-line"><span class="job-date-label job-date-done">Klárað</span> ${fmtDateTime(job.completedAt)}</div>` : ''}
+              </div>
             </div>
             <div style="text-align:right;flex-shrink:0;">${job.seq ? `<div class="beidni-num">#${job.seq}</div>` : ''}<span class="status-badge badge-archived">Geymsla</span></div>
           </div>

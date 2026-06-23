@@ -951,7 +951,7 @@
     const d = getData();
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
-    const updated = { ...job, status: 'done' };
+    const updated = { ...job, status: 'done', completedAt: new Date().toISOString() };
     const completionNote = (document.getElementById('completion-note-'+id)||{value:''}).value.trim();
     const isKarJob = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
     const unitName = isKarJob ? 'karnúmer' : 'gámanúmer';
