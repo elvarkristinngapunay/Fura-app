@@ -807,19 +807,6 @@
     const summaries = [];
     const warnings = [];
 
-    // Flag any gámanúmer that has non-digit characters and isn't a known
-    // container in the system — likely a typo, director needs to verify.
-    const existingIds = new Set(appData.containers.map(c => c.id));
-    const checkDirtyNumber = (num) => {
-      if (!num || num === 'Nei') return;
-      if (!/^\d+$/.test(num) && !existingIds.has(num)) {
-        warnings.push(`Gámanúmer "${num}" inniheldur texta og er ekki í kerfinu — gæti verið innsláttarvilla. Athugaðu og leiðréttu með Breyta ef þarf.`);
-      }
-    };
-    checkDirtyNumber(job.containerNumber);
-    checkDirtyNumber(job.containerNumberTekinn);
-    checkDirtyNumber(job.containerNumberSettur);
-
     const findCandidates = (num) => {
       if (!num || num === 'Nei') return [];
       return appData.containers.filter(c => c.id === num);
@@ -838,26 +825,22 @@
         return heimaOne || matches[0];
       }
     };
-    const findOrCreateForStart = (num) => {
+    // Find — returns null if the gámur is not in the system (no auto-create).
+    // Driver input is treated as a message to the director, not authority
+    // to write into Gámar alls.
+    const findForIntent = (num, intent) => {
       const matches = findCandidates(num);
-      if (matches.length === 0) {
-        return {
-          id: num, size: 'litill', sergerd: '', status: 'heima',
-          company: '', where: '', contact: '', placedAt: null,
-          efni: '', efniLabel: '', note: '',
-          autoCreated: true, createdAt: now, updatedAt: now
-        };
-      }
-      const picked = pickContainer(matches, 'start');
+      if (matches.length === 0) return null;
+      const picked = pickContainer(matches, intent);
       if (matches.length > 1) warnings.push(`Margir gámar með númerið ${num} fundust — uppfærði ${sizeLabel[picked.size] || picked.size}`);
       return picked;
     };
-    const findOrCreateForEnd = (num) => {
-      const matches = findCandidates(num);
-      if (matches.length === 0) return null;
-      const picked = pickContainer(matches, 'end');
-      if (matches.length > 1) warnings.push(`Margir gámar með númerið ${num} fundust — uppfærði ${sizeLabel[picked.size] || picked.size}`);
-      return picked;
+    const buildNotFoundWarning = (num) => {
+      const hasText = !/^\d+$/.test(num);
+      if (hasText) {
+        return `Gámanúmer "${num}" inniheldur texta og fannst ekki í Gámar alls — gæti verið innsláttarvilla. Stjórnandi þarf að lagfæra númerið með "Lagfæra gámanúmer".`;
+      }
+      return `Gámur #${num} er ekki skráður í Gámar alls. Stjórnandi þarf annaðhvort að bæta honum við (+ Bæta við gámi) eða lagfæra númerið ef það er innsláttarvilla.`;
     };
     const startRental = (c) => ({
       ...c, status: 'utleigu',
@@ -882,35 +865,38 @@
     switch (job.jobType) {
       case 'fara': {
         if (num && num !== 'Nei') {
-          const c = findOrCreateForStart(num);
-          await fsSetContainer(startRental(c));
+          const c = findForIntent(num, 'start');
+          if (c) await fsSetContainer(startRental(c));
+          else warnings.push(buildNotFoundWarning(num));
         }
         break;
       }
       case 'sekja': {
         if (num && num !== 'Nei') {
-          const c = findOrCreateForEnd(num);
+          const c = findForIntent(num, 'end');
           if (!c) {
-            warnings.push(`Gámur #${num} var ekki skráður sem útleigður — bætti í kerfið sjálfkrafa`);
-            const newC = findOrCreateForStart(num);
-            await fsSetContainer({ ...newC, updatedAt: now });
+            warnings.push(buildNotFoundWarning(num));
           } else {
             const { updated, summary } = endRental(c);
             await fsSetContainer(updated);
             if (summary) summaries.push(summary);
-            else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður`);
+            else warnings.push(`Gámur #${c.id} var ekki skráður sem útleigður þegar hann var sóttur — engin útleigusaga búin til`);
           }
         }
         break;
       }
       case 'losa': {
         if (num && num !== 'Nei') {
-          const c = findOrCreateForEnd(num) || findOrCreateForStart(num);
-          if (c.status === 'utleigu' && c.placedAt) {
-            const { summary } = endRental(c);
-            if (summary) summaries.push(summary);
+          const c = findForIntent(num, 'end') || findForIntent(num, 'start');
+          if (c) {
+            if (c.status === 'utleigu' && c.placedAt) {
+              const { summary } = endRental(c);
+              if (summary) summaries.push(summary);
+            }
+            await fsSetContainer(startRental(c));
+          } else {
+            warnings.push(buildNotFoundWarning(num));
           }
-          await fsSetContainer(startRental(c));
         }
         break;
       }
@@ -918,27 +904,32 @@
         const tek = job.containerNumberTekinn;
         const set = job.containerNumberSettur;
         if (tek && set && tek === set && tek !== 'Nei') {
-          const c = findOrCreateForEnd(tek) || findOrCreateForStart(tek);
-          if (c.status === 'utleigu' && c.placedAt) {
-            const { summary } = endRental(c);
-            if (summary) summaries.push(summary);
+          const c = findForIntent(tek, 'end') || findForIntent(tek, 'start');
+          if (c) {
+            if (c.status === 'utleigu' && c.placedAt) {
+              const { summary } = endRental(c);
+              if (summary) summaries.push(summary);
+            }
+            await fsSetContainer(startRental(c));
+          } else {
+            warnings.push(buildNotFoundWarning(tek));
           }
-          await fsSetContainer(startRental(c));
         } else {
           if (tek && tek !== 'Nei') {
-            const cT = findOrCreateForEnd(tek);
+            const cT = findForIntent(tek, 'end');
             if (!cT) {
-              warnings.push(`Gámur #${tek} var ekki skráður sem útleigður — bætti í kerfið sjálfkrafa`);
+              warnings.push(buildNotFoundWarning(tek));
             } else {
               const { updated, summary } = endRental(cT);
               await fsSetContainer(updated);
               if (summary) summaries.push(summary);
-              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður`);
+              else warnings.push(`Gámur #${cT.id} var ekki skráður sem útleigður þegar hann var sóttur — engin útleigusaga búin til`);
             }
           }
           if (set && set !== 'Nei') {
-            const cS = findOrCreateForStart(set);
-            await fsSetContainer(startRental(cS));
+            const cS = findForIntent(set, 'start');
+            if (cS) await fsSetContainer(startRental(cS));
+            else warnings.push(buildNotFoundWarning(set));
           }
         }
         break;
