@@ -2265,6 +2265,7 @@
           <button class="btn btn-outline btn-sm" onclick="editJob('${job.id}')">Breyta</button>
           ${(job.containerNumber || job.containerNumberTekinn || job.containerNumberSettur) && _fixingNumberJobId !== job.id ? `<button class="btn btn-outline btn-sm" onclick="showFixNumberForm('${job.id}')">✏ Lagfæra ${['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType) ? 'karnúmer' : 'gámanúmer'}</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
+          ${job.status === 'delayed' ? `<button class="btn btn-rust btn-sm" onclick="resumeDelayedJob('${job.id}')">▶ Setja verkefni af stað</button>` : ''}
           ${(job.status !== 'done' && job.status !== 'archived' && job.status !== 'draft' && _completingJobId !== job.id) ? `<button class="btn btn-green btn-sm" onclick="showCompleteForm('${job.id}')">✓ Klára núna</button>` : ''}
           ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button><button class="btn btn-outline btn-sm" onclick="archiveJob('${job.id}')" style="border-color:var(--muted);color:var(--muted);">🗄 Færa í geymslu</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
@@ -2673,6 +2674,16 @@
     delete updated.rentalSummaries; delete updated.rentalWarnings;
     await fsSetJob(updated);
     showToast('Beiðni opnuð aftur');
+  };
+
+  window.resumeDelayedJob = async function(id) {
+    const job = appData.jobs.find(j => j.id === id);
+    if (!job || job.status !== 'delayed') return;
+    const updated = { ...job, status: 'accepted' };
+    delete updated.delayNote;
+    delete updated.delayImage;
+    await fsSetJob(updated);
+    showToast('▶ Verkefni sett af stað');
   };
 
   window.deleteJob = async function(id) {
