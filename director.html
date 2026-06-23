@@ -298,6 +298,21 @@
     [data-theme="dark"] .gam-num-label, [data-theme="dark"] .gam-num-value { color: #80c090; }
     /* Dirty gámanúmer — yellow warning variant */
     .gam-num-box.gam-num-warn { background: #fef4e5; border-color: var(--yellow); }
+    .gam-num-box.gam-num-extra { background: #fdf2ec; border-color: var(--rust); }
+    .gam-num-extra .gam-num-label, .gam-num-extra .gam-num-value { color: var(--rust); }
+    .gam-num-extra-by { font-size: 0.7rem; color: var(--muted); font-style: italic; margin-top: 0.2rem; }
+    [data-theme="dark"] .gam-num-box.gam-num-extra { background: #3a2920; }
+    [data-theme="dark"] .gam-num-extra .gam-num-label, [data-theme="dark"] .gam-num-extra .gam-num-value { color: #f0a070; }
+    /* Aukagáma editor rows (Klára núna form + Breyta modal) */
+    .add-extra-btn { display: block; width: 100%; margin-top: 0.85rem; background: transparent; border: 2px dashed var(--rust); color: var(--rust); padding: 0.65rem; border-radius: 8px; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+    .add-extra-btn:hover { background: rgba(196,98,26,0.08); }
+    .extra-row-dir { margin-top: 0.7rem; padding: 0.6rem 0.8rem; background: rgba(196,98,26,0.07); border: 1.5px solid var(--rust); border-radius: 7px; }
+    .extra-row-dir-label { font-size: 0.65rem; font-weight: 800; color: var(--rust); letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+    .extra-row-dir-input { display: flex; gap: 0.4rem; align-items: stretch; }
+    .extra-row-dir-input input { flex: 1; padding: 0.55rem 0.75rem; border: 1.5px solid var(--mid); border-radius: 5px; font-size: 0.9rem; background: var(--white); color: var(--ink); outline: none; }
+    .extra-row-dir-input input:focus { border-color: var(--rust); }
+    .extra-remove { background: var(--mid); border: none; color: var(--ink); width: 34px; border-radius: 5px; font-size: 1.1rem; font-weight: 700; cursor: pointer; line-height: 1; padding: 0; }
+    .extra-remove:hover { background: var(--red); color: #fff; }
     .gam-num-warn .gam-num-label, .gam-num-warn .gam-num-value { color: #8a5a2b; }
     .gam-num-dirty-tag { margin-top: 0.35rem; font-size: 0.7rem; font-weight: 700; color: #8a5a2b; line-height: 1.3; }
     [data-theme="dark"] .gam-num-box.gam-num-warn { background: #4a3a2a; }
@@ -567,6 +582,8 @@
             <label style="margin-bottom:0.4rem;">Gámanúmer — Settur</label>
             <input type="text" id="edit-gamanumer-settur" />
           </div>
+          <div id="em-extras-wrap" style="margin-top:0.6rem;"></div>
+          <button type="button" id="em-add-extra-btn" class="add-extra-btn" style="display:none;margin-top:0.6rem;" onclick="if(_editingJobId)openExtraPickerDir(_editingJobId)">＋ Bæta við aukagámi</button>
         </div>
 
         <div class="send-row">
@@ -1824,7 +1841,26 @@
       }
     }
 
-    return {
+    // Aukagáma — collect from director state if editing
+    let extraContainersField = undefined;
+    if (_editingJobId && _extrasMapDir[_editingJobId]) {
+      const extras = [];
+      for (const e of _extrasMapDir[_editingJobId]) {
+        const numEl = document.getElementById(`em-extra-num-${e.key}`);
+        const num = numEl ? numEl.value.trim() : (e.number || '');
+        extras.push({
+          action: e.action,
+          efni: e.efni || '',
+          efniLabel: e.efniLabel || '',
+          number: num,
+          addedBy: e.addedBy || 'Stjórnandi'
+        });
+      }
+      // Only include extras that have a number; allow empty array to override
+      extraContainersField = extras.filter(x => x.number);
+    }
+
+    const out = {
       date: document.getElementById('job-date').value,
       company: document.getElementById('job-company').value.trim(),
       where: document.getElementById('job-where').value.trim(),
@@ -1838,6 +1874,8 @@
       image: _jobImageData || null,
       ...containerFields
     };
+    if (extraContainersField !== undefined) out.extraContainers = extraContainersField;
+    return out;
   }
 
   function validate(data) {
@@ -1928,7 +1966,8 @@
     const isSkiptaJob = job.jobType === 'skipta' || job.jobType === 'skipta-kari';
     const unitName = isKarJob ? 'Karnúmer' : 'Gámanúmer';
     const hasContainerData = !!(job.containerNumber || job.containerNumberTekinn || job.containerNumberSettur);
-    if (hasContainerData) {
+    const hasExtras = job.extraContainers && job.extraContainers.length > 0;
+    if (hasContainerData || hasExtras || job.status === 'done') {
       editWrap.style.display = 'block';
       if (isSkiptaJob) {
         editLabel.textContent = `${unitName} — Tekinn`;
@@ -1948,7 +1987,23 @@
       editInput.value = '';
       editSetturInput.value = '';
     }
+    // Load existing aukagáma into director state (only for gám jobs)
+    if (!isKarJob && job.extraContainers && job.extraContainers.length > 0) {
+      _extrasMapDir[id] = job.extraContainers.map((e, i) => ({
+        key: Date.now() + i + Math.random(),
+        action: e.action,
+        efni: e.efni || '',
+        efniLabel: e.efniLabel || '',
+        number: e.number || ''
+      }));
+    } else {
+      delete _extrasMapDir[id];
+    }
+    // Show / hide + button + render extras list
+    const addExtraBtn = document.getElementById('em-add-extra-btn');
+    if (addExtraBtn) addExtraBtn.style.display = isKarJob ? 'none' : 'block';
     _editingJobId = id;
+    renderEditExtras();
     _editingJobStatus = job.status;
     // Show the new-job form as an overlay modal — no tab switch
     document.getElementById('tab-new-job').classList.add('edit-mode-active');
@@ -1965,6 +2020,7 @@
   };
 
   window.exitEditMode = function() {
+    if (_editingJobId) delete _extrasMapDir[_editingJobId];
     _editingJobId = null;
     _editingJobStatus = null;
     document.getElementById('tab-new-job').classList.remove('edit-mode-active');
@@ -1972,6 +2028,10 @@
     document.getElementById('newjob-title').style.display = 'block';
     document.getElementById('senda-btn').textContent = 'Senda beiðni';
     document.getElementById('cancel-edit-btn').style.display = 'none';
+    const addExtraBtn = document.getElementById('em-add-extra-btn');
+    if (addExtraBtn) addExtraBtn.style.display = 'none';
+    const extrasWrap = document.getElementById('em-extras-wrap');
+    if (extrasWrap) extrasWrap.innerHTML = '';
     clearForm();
   };
 
@@ -2172,14 +2232,28 @@
             <div class="gam-num-value">${escHtml(num || '—')}</div>
             ${dirty ? `<div class="gam-num-dirty-tag">⚠ Inniheldur texta — ekki tengt raunverulegum gám</div>` : ''}
           </div>`;
+          let html = '';
           if (job.containerNumberTekinn) {
             const dirtyT = isDirty(job.containerNumberTekinn);
             const dirtyS = isDirty(job.containerNumberSettur);
-            return `<div class="gam-num-row">${numBox(`${unitShort} tekinn`, job.containerNumberTekinn, dirtyT)}${numBox(`${unitShort} settur`, job.containerNumberSettur, dirtyS)}</div>`;
+            html = `<div class="gam-num-row">${numBox(`${unitShort} tekinn`, job.containerNumberTekinn, dirtyT)}${numBox(`${unitShort} settur`, job.containerNumberSettur, dirtyS)}</div>`;
           } else if (job.containerNumber) {
-            return numBox(unitLong, job.containerNumber, isDirty(job.containerNumber));
+            html = numBox(unitLong, job.containerNumber, isDirty(job.containerNumber));
           }
-          return '';
+          if (job.extraContainers && job.extraContainers.length > 0) {
+            for (const e of job.extraContainers) {
+              const efniTxt = e.action === 'taka' ? (e.efni === 'annad' ? (e.efniLabel || 'Annað') : (e.efni === 'jarn' ? 'Járn' : (e.efni === 'timbur' ? 'Timbur' : ''))) : '';
+              const actionLbl = e.action === 'taka' ? 'AUKAGÁMUR · TAKA' + (efniTxt ? ' · ' + efniTxt.toUpperCase() : '') : 'AUKAGÁMUR · SETJA';
+              const dirty = isDirty(e.number);
+              html += `<div class="gam-num-box gam-num-extra${dirty ? ' gam-num-warn' : ''}">
+                <div class="gam-num-label">${actionLbl}</div>
+                <div class="gam-num-value">${escHtml(e.number || '—')}</div>
+                ${e.addedBy ? `<div class="gam-num-extra-by">${escHtml(e.addedBy)} bætti við</div>` : ''}
+                ${dirty ? `<div class="gam-num-dirty-tag">⚠ Inniheldur texta — ekki tengt raunverulegum gám</div>` : ''}
+              </div>`;
+            }
+          }
+          return html;
         })()}
         ${job.completionNote ? `<div class="driver-note-box"><div class="driver-note-label">💬 Athugasemd frá bílstjóra</div><div class="driver-note-body">${escHtml(job.completionNote)}</div></div>` : ''}
         ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
@@ -2299,10 +2373,23 @@
         <label class="complete-label">${unitLong}</label>
         <input type="text" id="complete-container-${job.id}" class="complete-input" placeholder="Sláðu inn númer..." />
         ${neiHint}`;
+    const extras = isKar ? [] : (_extrasMapDir[job.id] || []);
+    const extrasHtml = extras.map(e => `
+      <div class="extra-row-dir">
+        <div class="extra-row-dir-label">${extraRowLabelDir(e)}</div>
+        <div class="extra-row-dir-input">
+          <input type="text" id="dir-extra-num-${job.id}-${e.key}" value="${escHtml(e.number || '')}" placeholder="Sláðu inn gámanúmer..." />
+          <button type="button" class="extra-remove" onclick="removeExtraDir('${job.id}', ${e.key})" aria-label="Fjarlægja">×</button>
+        </div>
+      </div>
+    `).join('');
+    const addExtraBtn = isKar ? '' : `<button type="button" class="add-extra-btn" onclick="openExtraPickerDir('${job.id}')">＋ Bæta við aukagámi</button>`;
     return `
       <div class="complete-form">
         <div class="complete-form-title">✓ Klára núna</div>
         ${inputs}
+        ${extrasHtml}
+        ${addExtraBtn}
         <details class="complete-note-toggle">
           <summary>Athugasemd <span class="complete-note-hint">(valkvætt)</span><span class="complete-note-arrow">▾</span></summary>
           <textarea id="complete-note-${job.id}" class="complete-input" rows="2" placeholder="Bæta við athugasemd..." style="resize:none;margin-top:0.5rem;"></textarea>
@@ -2482,7 +2569,37 @@
         break;
       }
     }
-
+    // Aukagáma — same rules as main: 'taka' = rental end, 'setja' = rental start
+    if (job.extraContainers && job.extraContainers.length > 0) {
+      for (const extra of job.extraContainers) {
+        const num = extra.number;
+        if (!num || num === 'Nei') continue;
+        if (extra.action === 'taka') {
+          const c = findForIntent(num, 'end');
+          if (!c) {
+            warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
+          } else {
+            const cWithEfni = { ...c, efni: extra.efni || c.efni || '', efniLabel: extra.efniLabel || c.efniLabel || '' };
+            const { updated: updC, summary } = endRental(cWithEfni);
+            await fsSetContainer(updC);
+            if (summary) {
+              summary.fromExtra = true;
+              summary.addedBy = extra.addedBy || '';
+              summaries.push(summary);
+            } else {
+              warnings.push(`Aukagámur #${c.id} var ekki skráður sem útleigður þegar hann var sóttur — engin útleigusaga búin til`);
+            }
+          }
+        } else if (extra.action === 'setja') {
+          const c = findForIntent(num, 'start');
+          if (!c) {
+            warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
+          } else {
+            await fsSetContainer(startRental(c));
+          }
+        }
+      }
+    }
     return { summaries, warnings };
   }
 
@@ -2505,6 +2622,23 @@
       updated.containerNumber = num;
     }
     if (note) updated.completionNote = note;
+    // Aukagáma — collect from director's state + read current input values
+    if (!isKarJob && _extrasMapDir[id] && _extrasMapDir[id].length > 0) {
+      const extras = [];
+      for (const e of _extrasMapDir[id]) {
+        const numEl = document.getElementById(`dir-extra-num-${id}-${e.key}`);
+        const num = numEl ? numEl.value.trim() : (e.number || '');
+        if (!num) { showToast('Sláðu inn númer fyrir alla aukagáma (eða fjarlægðu þá)'); return; }
+        extras.push({
+          action: e.action,
+          efni: e.efni || '',
+          efniLabel: e.efniLabel || '',
+          number: num,
+          addedBy: 'Stjórnandi'
+        });
+      }
+      updated.extraContainers = extras;
+    }
     // The day the work is marked done = the day recorded for the gámur
     const workDate = todayISO();
     updated.workDate = workDate;
@@ -2516,6 +2650,8 @@
       if (result.warnings.length) updated.rentalWarnings = result.warnings;
       updated.rentalProcessed = true;
     }
+    // Clear director's local extras state
+    delete _extrasMapDir[id];
     await fsSetJob(updated);
     showToast('Beiðni skráð sem lokin ✓');
   };
@@ -2973,6 +3109,120 @@
     t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
   }
+
+  // ── DIRECTOR AUKAGÁMUR PICKER (same as driver, but for completeJob & Breyta) ──
+  // _extrasMapDir[jobId] = [{ key, action, efni, efniLabel, number }]
+  // Numbers stay in the array (not just inputs) so we can move between edit views.
+  let _extrasMapDir = {};
+  let _currentExtraJobIdDir = null;
+
+  window.openExtraPickerDir = function(jobId) {
+    _currentExtraJobIdDir = jobId;
+    document.getElementById('dir-extra-action-step').style.display = 'block';
+    document.getElementById('dir-extra-efni-step').style.display = 'none';
+    document.getElementById('dir-extra-efni-other').value = '';
+    document.getElementById('dir-extra-pick-modal').style.display = 'flex';
+  };
+  window.closeExtraPickerDir = function() {
+    document.getElementById('dir-extra-pick-modal').style.display = 'none';
+    _currentExtraJobIdDir = null;
+  };
+  window.extraPickActionDir = function(action) {
+    if (!_currentExtraJobIdDir) return;
+    if (action === 'setja') {
+      addExtraToJobDir(_currentExtraJobIdDir, 'setja', '', '');
+      closeExtraPickerDir();
+    } else {
+      document.getElementById('dir-extra-action-step').style.display = 'none';
+      document.getElementById('dir-extra-efni-step').style.display = 'block';
+    }
+  };
+  window.extraPickEfniDir = function(efni) {
+    if (!_currentExtraJobIdDir) return;
+    let efniLabel = '';
+    if (efni === 'annad') {
+      efniLabel = document.getElementById('dir-extra-efni-other').value.trim();
+      if (!efniLabel) { showToast('Lýstu efninu'); return; }
+    }
+    addExtraToJobDir(_currentExtraJobIdDir, 'taka', efni, efniLabel);
+    closeExtraPickerDir();
+  };
+  window.extraBackToActionDir = function() {
+    document.getElementById('dir-extra-action-step').style.display = 'block';
+    document.getElementById('dir-extra-efni-step').style.display = 'none';
+  };
+  function addExtraToJobDir(jobId, action, efni, efniLabel) {
+    if (!_extrasMapDir[jobId]) _extrasMapDir[jobId] = [];
+    _extrasMapDir[jobId].push({ key: Date.now() + Math.random(), action, efni, efniLabel, number: '' });
+    // Rerender whichever view is open (Klára núna form or Breyta modal)
+    if (_completingJobId === jobId) renderJobsList();
+    if (_editingJobId === jobId) renderEditExtras();
+  }
+  window.removeExtraDir = function(jobId, key) {
+    // Snapshot any in-progress input values before re-render
+    if (_extrasMapDir[jobId]) {
+      _extrasMapDir[jobId].forEach(e => {
+        const el = document.getElementById(`dir-extra-num-${jobId}-${e.key}`) || document.getElementById(`em-extra-num-${e.key}`);
+        if (el) e.number = el.value.trim();
+      });
+      _extrasMapDir[jobId] = _extrasMapDir[jobId].filter(e => e.key != key);
+    }
+    if (_completingJobId === jobId) renderJobsList();
+    if (_editingJobId === jobId) renderEditExtras();
+  };
+  function extraRowLabelDir(e) {
+    const action = e.action === 'taka' ? 'TAKA' : 'SETJA';
+    if (e.action === 'taka') {
+      const efni = e.efni === 'annad' ? (e.efniLabel || 'Annað') : (e.efni === 'jarn' ? 'Járn' : (e.efni === 'timbur' ? 'Timbur' : ''));
+      return action + (efni ? ' · ' + efni.toUpperCase() : '');
+    }
+    return action;
+  }
+  function renderEditExtras() {
+    // Placeholder — wired up when Breyta modal extras section is added
+    const wrap = document.getElementById('em-extras-wrap');
+    if (!wrap || !_editingJobId) return;
+    const extras = _extrasMapDir[_editingJobId] || [];
+    if (extras.length === 0) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = extras.map(e => `
+      <div class="extra-row-dir">
+        <div class="extra-row-dir-label">${extraRowLabelDir(e)}</div>
+        <div class="extra-row-dir-input">
+          <input type="text" id="em-extra-num-${e.key}" value="${escHtml(e.number || '')}" placeholder="Gámanúmer..." />
+          <button type="button" class="extra-remove" onclick="removeExtraDir('${_editingJobId}', ${e.key})" aria-label="Fjarlægja">×</button>
+        </div>
+      </div>
+    `).join('');
+  }
 </script>
+
+<!-- Director extra picker modal -->
+<div id="dir-extra-pick-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;align-items:center;justify-content:center;padding:1.25rem;" onclick="if(event.target===this)closeExtraPickerDir()">
+  <div style="background:var(--white);border-radius:14px;padding:1.5rem 1.4rem 1.4rem;width:100%;max-width:420px;position:relative;">
+    <button onclick="closeExtraPickerDir()" aria-label="Loka" style="position:absolute;top:0.5rem;right:0.6rem;background:none;border:none;font-size:1.4rem;color:var(--muted);cursor:pointer;line-height:1;padding:0.25rem 0.5rem;">×</button>
+    <div id="dir-extra-action-step">
+      <h3 style="margin:0 0 0.4rem 0;font-size:1.05rem;">Bæta við aukagámi</h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;">Hvað á að gera við þennan gám?</p>
+      <button class="btn btn-rust btn-full" style="margin-bottom:0.5rem;padding:0.85rem 1rem;text-align:left;line-height:1.3;" onclick="extraPickActionDir('taka')">
+        <strong>Taka</strong><br/><small style="font-weight:400;font-size:0.78rem;opacity:0.9;">Fjarlægja gám af staðnum</small>
+      </button>
+      <button class="btn btn-rust btn-full" style="padding:0.85rem 1rem;text-align:left;line-height:1.3;" onclick="extraPickActionDir('setja')">
+        <strong>Setja</strong><br/><small style="font-weight:400;font-size:0.78rem;opacity:0.9;">Setja gám á staðinn (tómur)</small>
+      </button>
+    </div>
+    <div id="dir-extra-efni-step" style="display:none;">
+      <h3 style="margin:0 0 0.4rem 0;font-size:1.05rem;">Hvað er í gámnum?</h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;">Efni gámsins sem á að taka</p>
+      <button class="btn btn-rust btn-full" style="margin-bottom:0.5rem;padding:0.85rem 1rem;" onclick="extraPickEfniDir('jarn')">Járn</button>
+      <button class="btn btn-rust btn-full" style="margin-bottom:0.5rem;padding:0.85rem 1rem;" onclick="extraPickEfniDir('timbur')">Timbur</button>
+      <div style="margin-bottom:0.5rem;">
+        <label style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:0.3rem;">Annað — lýstu</label>
+        <input type="text" id="dir-extra-efni-other" placeholder="t.d. Kopar, ryðfrítt..." style="width:100%;padding:0.7rem 1rem;border:1.5px solid var(--mid);border-radius:8px;font-size:0.95rem;outline:none;" />
+        <button class="btn btn-rust btn-full" style="margin-top:0.5rem;padding:0.7rem;" onclick="extraPickEfniDir('annad')">Halda áfram með "Annað"</button>
+      </div>
+      <button class="btn btn-outline btn-full" style="padding:0.7rem;" onclick="extraBackToActionDir()">← Til baka</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
