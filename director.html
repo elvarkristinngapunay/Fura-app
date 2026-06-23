@@ -145,6 +145,9 @@
     .utleiga-billing-panel { position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow-y: auto; }
     .billing-panel-header { font-size: 0.78rem; font-weight: 800; color: var(--rust); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.6rem; padding: 0 0.25rem; display: flex; align-items: center; gap: 0.4rem; }
     .billing-card { background: var(--white); border: 2px solid var(--rust); border-radius: 10px; padding: 0.9rem 1rem; margin-bottom: 0.7rem; box-shadow: 0 2px 8px rgba(196,98,26,0.18); }
+    .billing-card.billing-card-warn { border-color: var(--yellow); box-shadow: 0 2px 8px rgba(243,156,18,0.25); }
+    .billing-card-dirty { background: #fef4e5; border-left: 3px solid var(--yellow); color: #8a5a2b; padding: 0.45rem 0.7rem; font-size: 0.78rem; font-weight: 700; border-radius: 4px; margin-bottom: 0.5rem; line-height: 1.35; }
+    [data-theme="dark"] .billing-card-dirty { background: #4a3a2a; color: #d4a878; }
     .billing-card-title { font-size: 0.7rem; font-weight: 800; color: var(--rust); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
     .billing-card-num { font-size: 1.05rem; font-weight: 900; color: var(--ink); margin-bottom: 0.35rem; }
     .billing-card-line { font-size: 0.85rem; color: var(--ink); margin-bottom: 0.2rem; line-height: 1.4; }
@@ -1069,8 +1072,9 @@
     const items = [];
     for (const job of appData.jobs) {
       if (!job.rentalSummaries) continue;
+      const dirtyWarning = (job.rentalWarnings || []).some(w => w.includes('inniheldur texta'));
       for (const s of job.rentalSummaries) {
-        if (s.inBillingPanel) items.push({ ...s, jobId: job.id, jobDate: job.date, jobType: s.jobType || job.jobType });
+        if (s.inBillingPanel) items.push({ ...s, jobId: job.id, jobDate: job.date, jobType: s.jobType || job.jobType, dirtyWarning });
       }
     }
     return items.sort((a, b) => (b.returnedAt || '').localeCompare(a.returnedAt || ''));
@@ -1094,9 +1098,10 @@
       const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
       const wherePart = s.company && s.where ? `${escHtml(s.company)} — ${escHtml(s.where)}` : escHtml(s.company || s.where || '—');
       const jobTypeText = jobTypeRentalLabel(s.jobType);
-      return `<div class="billing-card">
+      return `<div class="billing-card${s.dirtyWarning ? ' billing-card-warn' : ''}">
         <div class="billing-card-title">Vantar skráningu</div>
         <div class="billing-card-num">Gámur #${escHtml(s.containerId)}</div>
+        ${s.dirtyWarning ? `<div class="billing-card-dirty">⚠ Gámaskráning ekki uppfærð — gámanúmer er ekki hreint</div>` : ''}
         ${jobTypeText ? `<div class="billing-card-line billing-jobtype-line">🚛 <strong>${jobTypeText}</strong></div>` : ''}
         <div class="billing-card-line"><strong>📍 ${wherePart}</strong></div>
         <div class="billing-card-line">⏱ <strong>${daysLabel(s.days)}</strong></div>
@@ -1389,12 +1394,19 @@
   window.rentalVista = async function(jobId) {
     const job = appData.jobs.find(j => j.id === jobId);
     if (!job || !job.rentalSummaries) return;
+    // If gámanúmer is dirty (has text + not in system), make sure director knows
+    // the Gámar alls list was NOT updated automatically
+    const hasDirty = (job.rentalWarnings || []).some(w => w.includes('inniheldur texta'));
+    if (hasDirty) {
+      const ok = confirm('⚠ Gámanúmer þessa verkefnis er ekki hreint — það hefur texta og er ekki tengt raunverulegum gám í Gámar alls.\n\nEf þú vistar núna:\n• Innheimtuspjald birtist eins og venjulega\n• EN gámaskráningin í "Gámar alls" er EKKI uppfærð\n\nMæli með: Smelltu fyrst á "Lagfæra gámanúmer" og leiðréttu númerið — þá verður allt uppfært í einu höggi.\n\nHalda samt áfram með óhreinu númeri?');
+      if (!ok) return;
+    }
     const updated = {
       ...job,
       rentalSummaries: job.rentalSummaries.map(s => ({ ...s, inBillingPanel: true, jobId }))
     };
     await fsSetJob(updated);
-    showToast('Vistað í útleiguskjal ✓');
+    showToast(hasDirty ? '⚠ Vistað — en gámaskráning ekki uppfærð' : 'Vistað í útleiguskjal ✓');
   };
 
   window.markBillingDone = async function(jobId, containerId, placedAt) {
