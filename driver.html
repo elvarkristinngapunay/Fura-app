@@ -655,6 +655,18 @@
     const isSkipta = job.jobType === 'skipta' || job.jobType === 'skipta-kari';
     const isKar = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
     const unitLong = isKar ? 'Karnúmer' : 'Gámanúmer';
+    // Action-specific label so it's clear whether driver is taking or placing
+    const unit = isKar ? 'kari' : 'gámi';
+    let singleLabel = unitLong;
+    if (job.jobType === 'sekja' || job.jobType === 'taka-kar') {
+      singleLabel = `Númer á ${unit} sem þú ert að <span style="color:var(--rust);font-weight:800;">TAKA</span>`;
+    } else if (job.jobType === 'fara' || job.jobType === 'vantar-kar') {
+      singleLabel = `Númer á ${unit} sem þú ert að <span style="color:var(--green);font-weight:800;">SETJA</span>`;
+    } else if (job.jobType === 'losa' || job.jobType === 'losa-kar') {
+      singleLabel = `Númer á ${unit} (sami ${unit} tekinn og settur aftur)`;
+    }
+    const tekinnLabel = `Númer á ${unit} sem þú ert að <span style="color:var(--rust);font-weight:800;">TAKA</span>`;
+    const setturLabel = `Númer á ${unit} sem þú ert að <span style="color:var(--green);font-weight:800;">SETJA</span>`;
     const unitShort = isKar ? 'Kar' : 'Gám';
 
     // Done container number block
@@ -714,12 +726,12 @@
       if (isSkipta) {
         actionBlock = `
           <div class="container-input-wrap">
-            <label>${unitLong} — Tekinn</label>
-            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Númer á ${isKar ? 'kari' : 'gámi'} sem tekinn..." />
+            <label>${tekinnLabel}</label>
+            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Sláðu inn númer..." />
             ${neiHintTekinn}
-            <label style="margin-top:0.5rem;display:block;">${unitLong} — Settur</label>
+            <label style="margin-top:0.5rem;display:block;">${setturLabel}</label>
             <div class="container-row" style="margin-top:0.4rem;">
-              <input type="text" id="container-settur-${job.id}" placeholder="Númer á ${isKar ? 'kari' : 'gámi'} sem settur..." />
+              <input type="text" id="container-settur-${job.id}" placeholder="Sláðu inn númer..." />
             </div>
             ${neiHintSettur}
             ${extrasHtml}
@@ -734,7 +746,7 @@
       } else {
         actionBlock = `
           <div class="container-input-wrap">
-            <label>${unitLong}</label>
+            <label>${singleLabel}</label>
             <div class="container-row">
               <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." />
             </div>
@@ -1198,9 +1210,10 @@
     return '';
   }
   function extraRowLabel(e) {
+    const color = e.action === 'taka' ? 'var(--rust)' : 'var(--green)';
     const action = e.action === 'taka' ? 'TAKA' : 'SETJA';
     const efni = e.action === 'taka' ? ' · ' + efniDisplayLabel(e.efni, e.efniLabel).toUpperCase() : '';
-    return action + efni;
+    return `<span style="color:${color};font-weight:800;">${action}</span>${efni}`;
   }
 </script>
 
