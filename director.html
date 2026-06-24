@@ -802,20 +802,30 @@
   }
 
   // ── FIRESTORE WRITE HELPERS ────────────────────────────────────────────────
-  async function fsSetJob(job)       { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)); }
-  async function fsDeleteJob(id)     { await deleteDoc(doc(db,'jobs',id)); }
-  async function fsSetRequest(req)   { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)); }
-  async function fsDeleteRequest(id) { await deleteDoc(doc(db,'driverRequests',id)); }
-  async function fsSetDriver(dr)     { const {id,...d}=dr; await setDoc(doc(db,'approvedDrivers',id), cleanObj(d)); }
-  async function fsDeleteDriver(id)  { await deleteDoc(doc(db,'approvedDrivers',id)); }
+  // Wrap writes so any failure (offline, quota, oversized doc, permission)
+  // surfaces as a clear toast instead of a silent success that misleads.
+  function fsErr(label) {
+    return (e) => {
+      console.error(label, e);
+      const msg = e && e.message ? e.message : 'óþekkt villa';
+      showToast('❌ Ekki tókst að vista ' + label + ' — ' + msg);
+      throw e;
+    };
+  }
+  async function fsSetJob(job)       { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)).catch(fsErr('beiðni')); }
+  async function fsDeleteJob(id)     { await deleteDoc(doc(db,'jobs',id)).catch(fsErr('eyðingu beiðni')); }
+  async function fsSetRequest(req)   { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)).catch(fsErr('bílstjórabeiðni')); }
+  async function fsDeleteRequest(id) { await deleteDoc(doc(db,'driverRequests',id)).catch(fsErr('eyðingu bílstjórabeiðni')); }
+  async function fsSetDriver(dr)     { const {id,...d}=dr; await setDoc(doc(db,'approvedDrivers',id), cleanObj(d)).catch(fsErr('bílstjóra')); }
+  async function fsDeleteDriver(id)  { await deleteDoc(doc(db,'approvedDrivers',id)).catch(fsErr('eyðingu bílstjóra')); }
   function makeContainerKey(displayId, size) { return `${displayId}__${size || 'litill'}`; }
   async function fsSetContainer(c) {
     const key = c._key || makeContainerKey(c.id, c.size);
     const {_key, id, ...d} = c;
     d.id = id;
-    await setDoc(doc(db,'containers', key), cleanObj(d));
+    await setDoc(doc(db,'containers', key), cleanObj(d)).catch(fsErr('gám'));
   }
-  async function fsDeleteContainerByKey(key) { await deleteDoc(doc(db,'containers', key)); }
+  async function fsDeleteContainerByKey(key) { await deleteDoc(doc(db,'containers', key)).catch(fsErr('eyðingu gáms')); }
 
   // Global ever-increasing beiðni counter (never reused, survives deletions).
   async function nextBeidniNumber() {
@@ -908,16 +918,25 @@
     renderJobsList();
     updateRequestsBadge();
   }
+  const SESSION_MAX_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
   window.doLogin = function() {
     const pw = document.getElementById('login-password').value;
     if (pw !== DIRECTOR_PASSWORD) { document.getElementById('login-error').style.display = 'block'; return; }
-    localStorage.setItem('fura_director_session', 'yes');
+    localStorage.setItem('fura_director_session', String(Date.now()));
     completeLogin();
   };
-  // Auto-login if previously logged in
-  if (localStorage.getItem('fura_director_session') === 'yes') {
+  // Auto-login if previously logged in within the last week
+  (function tryAutoLogin() {
+    const raw = localStorage.getItem('fura_director_session');
+    if (!raw) return;
+    // Backwards-compat: old sessions stored 'yes' instead of a timestamp — treat as expired
+    const ts = Number(raw);
+    if (!ts || isNaN(ts) || Date.now() - ts > SESSION_MAX_MS) {
+      localStorage.removeItem('fura_director_session');
+      return;
+    }
     completeLogin();
-  }
+  })();
   window.doLogout = function() {
     _loggedIn = false;
     localStorage.removeItem('fura_director_session');
@@ -1382,8 +1401,15 @@
     if (!_editingContainerId) c.createdAt = new Date().toISOString();
     // Collision check: only against gámar with the SAME (id + size) combination
     const collisionKey = _editingContainerId || newKey;
-    if (appData.containers.some(x => x._key === newKey && x._key !== collisionKey)) {
-      if (!confirm(`Gámur með auðkennið "${idRaw}" og stærðina "${sizeLabels[size]}" er þegar til. Skrifa yfir?`)) return;
+    const existingDup = appData.containers.find(x => x._key === newKey && x._key !== collisionKey);
+    if (existingDup) {
+      let info = `⚠ Gámur #${idRaw} ${sizeLabels[size]} er nú þegar skráður.\n\nNúverandi skráning:`;
+      info += `\n• Staða: ${existingDup.status === 'utleigu' ? 'Í útleigu' : 'Heima'}`;
+      if (existingDup.company) info += `\n• Fyrirtæki: ${existingDup.company}`;
+      if (existingDup.where) info += `\n• Staðsetning: ${existingDup.where}`;
+      if (existingDup.placedAt) info += `\n• Settur þann: ${existingDup.placedAt.split('-').reverse().join('.')}`;
+      info += `\n\nEf þú heldur áfram VERÐUR þessari skráningu eytt og ný sett í staðinn. Þú tapar útleigusögu þessa gáms.\n\nViltu virkilega skrifa yfir?`;
+      if (!confirm(info)) return;
     }
     // If editing and size changed, delete the old doc (composite key changed)
     if (_editingContainerId && _editingContainerId !== newKey) {
@@ -2256,7 +2282,7 @@
           return html;
         })()}
         ${job.completionNote ? `<div class="driver-note-box"><div class="driver-note-label">💬 Athugasemd frá bílstjóra</div><div class="driver-note-body">${escHtml(job.completionNote)}</div></div>` : ''}
-        ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:6px;margin-top:0.5rem;max-height:150px;object-fit:cover;" />` : ''}</div>` : ''}
+        ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
         ${job.status === 'done' ? rentalSummaryBlock(job) : ''}
         ${_completingJobId === job.id ? renderCompleteForm(job) : ''}
@@ -2846,11 +2872,10 @@
         </div>`;
     }
 
-    const delaySection = job.status === 'delayed' && (job.delayNote || job.delayImage) ? `
+    const delaySection = job.status === 'delayed' && job.delayNote ? `
       <div class="section">
         <h2>Ástæða töfar</h2>
-        <div class="delay">${escHtml(job.delayNote || 'Engin ástæða gefin')}</div>
-        ${job.delayImage ? `<img class="attached" src="${job.delayImage}" alt="Mynd af töf" />` : ''}
+        <div class="delay">${escHtml(job.delayNote)}</div>
       </div>` : '';
 
     return `<!DOCTYPE html>

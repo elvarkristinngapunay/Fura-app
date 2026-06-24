@@ -181,7 +181,6 @@
     .delay-form-label { font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.4rem; display:block; }
     .delay-textarea { width:100%; padding:0.75rem; border:1.5px solid var(--mid); border-radius:8px; font-size:0.9rem; min-height:80px; resize:vertical; outline:none; font-family:inherit; transition:border-color 0.2s; }
     .delay-textarea:focus { border-color:#7a4f2c; }
-    .delay-img-btn { font-size:0.8rem; font-weight:600; padding:0.4rem 0.9rem; border:1.5px dashed var(--mid); border-radius:6px; background:var(--white); color:var(--muted); cursor:pointer; }
     .delay-info { margin-top:0.75rem; padding:0.75rem 1rem; background:#f5ede3; border-radius:8px; border-left:3px solid #7a4f2c; }
     .delay-info-label { font-size:0.72rem; font-weight:800; color:#5c3310; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.3rem; }
     .container-full-input { width:100%; padding:0.8rem 1rem; border:1.5px solid var(--mid); border-radius:8px; font-size:1rem; outline:none; margin-bottom:0.5rem; transition:border-color 0.2s; }
@@ -401,13 +400,21 @@
   let appData = { jobs: [], driverRequests: [], approvedDrivers: [], containers: [] };
   function getData() { return appData; }
   function cleanObj(obj) { return JSON.parse(JSON.stringify(obj, (k,v) => v===undefined ? null : v)); }
-  async function fsSetJob(job) { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)); }
-  async function fsSetRequest(req) { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)); }
+  function fsErr(label) {
+    return (e) => {
+      console.error(label, e);
+      const msg = e && e.message ? e.message : 'óþekkt villa';
+      showToast('❌ Ekki tókst að vista ' + label + ' — ' + msg);
+      throw e;
+    };
+  }
+  async function fsSetJob(job) { const {id,...d}=job; await setDoc(doc(db,'jobs',id), cleanObj(d)).catch(fsErr('beiðni')); }
+  async function fsSetRequest(req) { const {id,...d}=req; await setDoc(doc(db,'driverRequests',id), cleanObj(d)).catch(fsErr('beiðni um aðgang')); }
   function makeContainerKey(displayId, size) { return `${displayId}__${size || 'litill'}`; }
   async function fsSetContainer(c) {
     const key = c._key || makeContainerKey(c.id, c.size);
     const {_key, ...d} = c;
-    await setDoc(doc(db,'containers', key), cleanObj(d));
+    await setDoc(doc(db,'containers', key), cleanObj(d)).catch(fsErr('gám'));
   }
 
   // ── REAL-TIME LISTENERS ────────────────────────────────────────────────────
@@ -464,7 +471,6 @@
   let currentDriverName = null;
   let currentTab = 'utkolun';
   let _delayingJobId = null;
-  let _delayImageData = null;
 
   function nameMatch(a, b) { return a && b && a.trim().toLowerCase() === b.trim().toLowerCase(); }
   function todayISO() {
@@ -681,7 +687,6 @@
         <div class="delay-info">
           <div class="delay-info-label">⏸ Frestað</div>
           ${job.delayNote ? `<div style="font-size:0.9rem;color:var(--ink);margin-top:0.2rem;">${job.delayNote}</div>` : ''}
-          ${job.delayImage ? `<img src="${job.delayImage}" style="width:100%;border-radius:8px;margin-top:0.6rem;max-height:160px;object-fit:cover;" />` : ''}
         </div>
         <div class="status-actions" style="margin-top:0.75rem;"><button class="btn btn-rust btn-full" onclick="resumeJob('${job.id}')">▶ Halda áfram</button></div>`;
     } else if (job.status === 'accepted' && !isDelaying) {
@@ -751,11 +756,6 @@
       <div class="delay-form">
         <label class="delay-form-label">Ástæða töfar</label>
         <textarea id="delay-note-${job.id}" class="delay-textarea" placeholder="Hvers vegna er verið að fresta?..."></textarea>
-        <div style="margin-top:0.6rem;">
-          <input type="file" id="delay-img-input-${job.id}" accept="image/*" style="display:none" onchange="handleDelayImage('${job.id}', this)" />
-          <button type="button" class="delay-img-btn" onclick="document.getElementById('delay-img-input-${job.id}').click()">📷 Bæta við mynd</button>
-          <img id="delay-img-preview-${job.id}" src="" style="display:none;width:100%;border-radius:8px;margin-top:0.5rem;max-height:160px;object-fit:cover;" />
-        </div>
         <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
           <button class="btn btn-outline btn-full btn-sm" onclick="cancelDelay()">Hætta við</button>
           <button class="btn btn-rust btn-full btn-sm" onclick="submitDelay('${job.id}')">Staðfesta töf</button>
@@ -1061,37 +1061,13 @@
 
   window.showDelayForm = function(id) {
     _delayingJobId = id;
-    _delayImageData = null;
     renderAll();
     setTimeout(() => { const el = document.getElementById('delay-note-'+id); if (el) el.focus(); }, 60);
   };
 
   window.cancelDelay = function() {
     _delayingJobId = null;
-    _delayImageData = null;
     renderAll();
-  };
-
-  window.handleDelayImage = function(id, input) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const img = new Image();
-      img.onload = function() {
-        const MAX = 800;
-        const scale = img.width > MAX ? MAX / img.width : 1;
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        _delayImageData = canvas.toDataURL('image/jpeg', 0.75);
-        const preview = document.getElementById('delay-img-preview-'+id);
-        if (preview) { preview.src = _delayImageData; preview.style.display = 'block'; }
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
   };
 
   window.submitDelay = async function(id) {
@@ -1101,8 +1077,7 @@
     const job = d.jobs.find(j => j.id === id);
     if (!job) return;
     _delayingJobId = null;
-    _delayImageData = null;
-    await fsSetJob({ ...job, status: 'delayed', delayNote: note || null, delayImage: _delayImageData || null });
+    await fsSetJob({ ...job, status: 'delayed', delayNote: note || null });
     showToast('Beiðni frestað ⏸');
   };
 
