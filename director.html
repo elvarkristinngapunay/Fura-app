@@ -1354,7 +1354,7 @@
     cmResetForm();
     document.getElementById('container-modal-title').textContent = 'Breyta gámi #' + c.id;
     document.getElementById('cm-id').value = c.id;
-    document.getElementById('cm-id').disabled = true;
+    document.getElementById('cm-id').disabled = false;
     if (c.size) {
       const btn = [...document.querySelectorAll('#cm-size-group .option-btn')].find(b => (sizeLabels[c.size] || c.size) === b.textContent);
       if (btn) cmPick('cm-size-group', btn, c.size);
