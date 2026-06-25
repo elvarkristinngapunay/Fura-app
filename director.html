@@ -1218,7 +1218,23 @@
     const total = all.length;
     const utleigu = all.filter(c => c.status === 'utleigu').length;
     const heima = all.filter(c => c.status === 'heima').length;
-    sumEl.innerHTML = `<strong>${total}</strong> gámar alls · <strong style="color:var(--rust);">${utleigu}</strong> úti · <strong style="color:var(--green);">${heima}</strong> heima`;
+    // Banner: containers flagged needsRename that are now heima
+    const needsRenameHome = all.filter(c => c.needsRename && c.status === 'heima');
+    let banner = '';
+    if (needsRenameHome.length > 0) {
+      const items = needsRenameHome.map(c => {
+        const sz = sizeLabels[c.size] || c.size;
+        return `<div style="margin:0.4rem 0;padding:0.5rem 0.7rem;background:#fff;border-radius:6px;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <span><strong>#${escHtml(c.id)} ${escHtml(sz)}</strong> er kominn heim — málaða númerið er tvíburi við annan gám í kerfinu.</span>
+          <button class="btn btn-rust btn-sm" onclick="editContainer('${escHtml(c._key)}')">Endurnefna núna</button>
+        </div>`;
+      }).join('');
+      banner = `<div style="background:#fff8e8;border-left:4px solid #f5d76e;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1rem;">
+        <div style="font-weight:700;color:#8a5a2b;margin-bottom:0.35rem;">⚠ Gámur með tvíbura-númer er kominn heim — þarf nýtt númer</div>
+        ${items}
+      </div>`;
+    }
+    sumEl.innerHTML = `${banner}<strong>${total}</strong> gámar alls · <strong style="color:var(--rust);">${utleigu}</strong> úti · <strong style="color:var(--green);">${heima}</strong> heima`;
 
     let list = sortContainers(all);
     if (q) {
@@ -1399,6 +1415,22 @@
       updatedAt: new Date().toISOString()
     };
     if (!_editingContainerId) c.createdAt = new Date().toISOString();
+    // Preserve dupGroup/needsRename when editing — but if the displayed id
+    // (málaða númerið) changed, the tvíburi-vandamál is leyst og flagið hverfur.
+    let existingForEdit = null;
+    if (_editingContainerId) {
+      existingForEdit = appData.containers.find(x => x._key === _editingContainerId);
+      if (existingForEdit) {
+        const idChanged = (existingForEdit.id || '') !== idRaw;
+        if (existingForEdit.dupGroup && !idChanged) {
+          c.dupGroup = existingForEdit.dupGroup;
+          c.needsRename = !!existingForEdit.needsRename;
+        }
+        // If id changed and this container was in a dup group, flag will be
+        // cleared from THIS container (above by not copying) and also from all
+        // siblings further down.
+      }
+    }
     // Collision check: only against gámar with the SAME (id + size) combination
     const collisionKey = _editingContainerId || newKey;
     const existingDup = appData.containers.find(x => x._key === newKey && x._key !== collisionKey);
@@ -1418,6 +1450,17 @@
       await fsDeleteContainerByKey(_editingContainerId);
     }
     await fsSetContainer(c);
+    // If the edit broke a dup-group (id changed), clear needsRename/dupGroup
+    // from all siblings in the same group so the warning stops on both sides.
+    if (existingForEdit && existingForEdit.dupGroup && (existingForEdit.id || '') !== idRaw) {
+      const siblings = appData.containers.filter(x =>
+        x.dupGroup === existingForEdit.dupGroup && x._key !== _editingContainerId
+      );
+      for (const sib of siblings) {
+        const { needsRename: _r, dupGroup: _g, ...rest } = sib;
+        await fsSetContainer({ ...rest, updatedAt: new Date().toISOString() });
+      }
+    }
     showToast(_editingContainerId ? 'Gámur uppfærður ✓' : 'Gámur skráður ✓');
     closeContainerForm();
   };
