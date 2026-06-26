@@ -2354,7 +2354,7 @@
           <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
           ${job.status === 'delayed' ? `<button class="btn btn-rust btn-sm" onclick="resumeDelayedJob('${job.id}')">▶ Setja verkefni af stað</button>` : ''}
           ${(job.status !== 'done' && job.status !== 'archived' && job.status !== 'draft' && _completingJobId !== job.id) ? `<button class="btn btn-green btn-sm" onclick="showCompleteForm('${job.id}')">✓ Klára núna</button>` : ''}
-          ${job.status === 'done' && GAM_JOB_TYPES.includes(job.jobType) && !(job.rentalSummaries || []).some(s => s.type === 'start') && (['fara','losa','skipta'].includes(job.jobType) || (job.extraContainers || []).some(e => e.action === 'setja')) ? `<button class="btn btn-outline btn-sm" onclick="recomputeRental('${job.id}')">🔄 Endurreikna útleigu</button>` : ''}
+          ${job.status === 'done' && GAM_JOB_TYPES.includes(job.jobType) && !(job.rentalSummaries || []).some(s => s.type === 'start') && (['fara','losa','skipta'].includes(job.jobType) || (job.extraContainers || []).some(e => e.action === 'setja')) ? `<button class="btn btn-green btn-sm" onclick="recomputeRental('${job.id}')">📋 Skrá í útleiguskjal</button>` : ''}
           ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button><button class="btn btn-outline btn-sm" onclick="archiveJob('${job.id}')" style="border-color:var(--muted);color:var(--muted);">🗄 Færa í geymslu</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
         </div>
@@ -2771,19 +2771,21 @@
   window.recomputeRental = async function(id) {
     const job = appData.jobs.find(j => j.id === id);
     if (!job) return;
-    if (!confirm('Endurreikna útleigu fyrir þessa beiðni?\n\nÞað dregur til baka núverandi útleiguskráningu og setur hana inn aftur frá grunni. Notist t.d. ef gamlar SETJA-aðgerðir vantar í útleiguskjalið.')) return;
+    if (!confirm('Skrá gámaflutninga þessarar beiðni í útleiguskjalið?')) return;
     await reverseRentalLogic(job);
     const cleaned = { ...job };
     delete cleaned.rentalSummaries;
     delete cleaned.rentalWarnings;
     const result = await applyContainerRentalLogic(cleaned, cleaned.workDate);
     if (result) {
-      if (result.summaries.length) cleaned.rentalSummaries = result.summaries;
+      if (result.summaries.length) {
+        cleaned.rentalSummaries = result.summaries.map(s => ({ ...s, inBillingPanel: true, jobId: id }));
+      }
       if (result.warnings.length) cleaned.rentalWarnings = result.warnings;
       cleaned.rentalProcessed = true;
     }
     await fsSetJob(cleaned);
-    showToast('Útleiga endurreiknuð ✓');
+    showToast('Skráð í útleiguskjal ✓');
   };
 
   window.reopenJob = async function(id) {
