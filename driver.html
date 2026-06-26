@@ -471,6 +471,7 @@
   let currentDriverName = null;
   let currentTab = 'utkolun';
   let _delayingJobId = null;
+  let _fixingDoneId = null;
 
   function nameMatch(a, b) { return a && b && a.trim().toLowerCase() === b.trim().toLowerCase(); }
   function todayISO() {
@@ -669,9 +670,10 @@
     const setturLabel = `Númer á ${unit} sem þú ert að <span style="color:var(--green);font-weight:800;">SETJA</span>`;
     const unitShort = isKar ? 'Kar' : 'Gám';
 
-    // Done container number block
+    // Done container number block (hidden when fixing — edit form takes over)
+    const isFixingThis = _fixingDoneId === job.id;
     let doneBlock = '';
-    if (job.status === 'done') {
+    if (job.status === 'done' && !isFixingThis) {
       doneBlock = `<hr class="job-divider"/>`;
       if (job.containerNumberTekinn) {
         doneBlock += `<div class="job-detail"><strong>${unitShort} tekinn</strong> <span style="color:var(--green);font-weight:700;">${job.containerNumberTekinn}</span></div>`;
@@ -682,9 +684,12 @@
       if (job.extraContainers && job.extraContainers.length > 0) {
         for (const e of job.extraContainers) {
           const efniTxt = e.action === 'taka' ? (e.efni === 'annad' ? (e.efniLabel || 'Annað') : (e.efni === 'jarn' ? 'Járn' : (e.efni === 'timbur' ? 'Timbur' : ''))) : '';
-          const lbl = e.action === 'taka' ? `Aukagámur · TAKA${efniTxt ? ' · ' + efniTxt : ''}` : 'Aukagámur · SETJA';
+          const lbl = e.action === 'taka' ? `Aukagámur tekinn${efniTxt ? ' · ' + efniTxt : ''}` : 'Aukagámur settur';
           doneBlock += `<div class="job-detail"><strong>${lbl}</strong> <span style="color:var(--rust);font-weight:700;">${e.number || '—'}</span></div>`;
         }
+      }
+      if (job.completionNote) {
+        doneBlock += `<div class="job-detail" style="margin-top:0.5rem;"><strong>Athugasemd</strong> <span>${job.completionNote}</span></div>`;
       }
     }
 
@@ -707,7 +712,7 @@
           <button class="btn btn-rust" style="flex:1;" onclick="markOnWay('${job.id}')">🚛 Á leiðinni</button>
           <button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button>
         </div>`;
-    } else if (job.status === 'onway' && !isDelaying) {
+    } else if ((job.status === 'onway' && !isDelaying) || isFixingThis) {
       const neiHint = isKar ? `<div class="nei-hint">Ekkert númer á þessu kari? <button type="button" class="nei-btn" onclick="markNei('container-${job.id}')">Nei</button></div>` : '';
       const neiHintTekinn = isKar ? `<div class="nei-hint">Ekkert númer? <button type="button" class="nei-btn" onclick="markNei('container-tekinn-${job.id}')">Nei</button></div>` : '';
       const neiHintSettur = isKar ? `<div class="nei-hint">Ekkert númer? <button type="button" class="nei-btn" onclick="markNei('container-settur-${job.id}')">Nei</button></div>` : '';
@@ -717,50 +722,58 @@
         <div class="extra-row">
           <div class="extra-label">${extraRowLabel(e)}</div>
           <div class="extra-input-wrap">
-            <input type="text" id="extra-num-${job.id}-${e.key}" placeholder="Sláðu inn gámanúmer..." />
+            <input type="text" id="extra-num-${job.id}-${e.key}" placeholder="Sláðu inn gámanúmer..." value="${e.number || ''}" />
             <button class="extra-remove" onclick="removeExtra('${job.id}', ${e.key})" aria-label="Fjarlægja">×</button>
           </div>
         </div>
       `).join('');
       const addExtraBtn = isKar ? '' : `<button class="add-extra-btn" onclick="openExtraPicker('${job.id}')">＋ Bæta við aukagámi</button>`;
+      const noteVal = job.completionNote ? job.completionNote.replace(/</g,'&lt;') : '';
+      const submitFn = isFixingThis ? `saveFixDone('${job.id}', ${isSkipta})` : `markDone('${job.id}'${isSkipta ? ', true' : ''})`;
+      const submitLabel = isFixingThis ? '✓ Vista breytingar' : 'Sótt ✓';
+      const extraBtns = isFixingThis
+        ? `<div style="margin-top:0.5rem;"><button class="btn btn-outline btn-sm" onclick="cancelFixDone()">Hætta við</button></div>`
+        : `<div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
       if (isSkipta) {
         actionBlock = `
           <div class="container-input-wrap">
             <label>${tekinnLabel}</label>
-            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Sláðu inn númer..." />
+            <input type="text" id="container-tekinn-${job.id}" class="container-full-input" placeholder="Sláðu inn númer..." value="${job.containerNumberTekinn || ''}" />
             ${neiHintTekinn}
             <label style="margin-top:0.5rem;display:block;">${setturLabel}</label>
             <div class="container-row" style="margin-top:0.4rem;">
-              <input type="text" id="container-settur-${job.id}" placeholder="Sláðu inn númer..." />
+              <input type="text" id="container-settur-${job.id}" placeholder="Sláðu inn númer..." value="${job.containerNumberSettur || ''}" />
             </div>
             ${neiHintSettur}
             ${extrasHtml}
             ${addExtraBtn}
-            <details class="note-toggle">
+            <details class="note-toggle"${noteVal ? ' open' : ''}>
               <summary>Athugasemd <span class="note-toggle-hint">(valkvætt)</span><span class="note-arrow">▾</span></summary>
-              <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;margin-top:0.5rem;"></textarea>
+              <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;margin-top:0.5rem;">${noteVal}</textarea>
             </details>
-            <button class="btn btn-green" style="width:100%;margin-top:0.75rem;" onclick="markDone('${job.id}', true)">Sótt ✓</button>
+            <button class="btn btn-green" style="width:100%;margin-top:0.75rem;" onclick="${submitFn}">${submitLabel}</button>
           </div>
-          <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
+          ${extraBtns}`;
       } else {
         actionBlock = `
           <div class="container-input-wrap">
             <label>${singleLabel}</label>
             <div class="container-row">
-              <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." />
+              <input type="text" id="container-${job.id}" placeholder="Sláðu inn númer..." value="${job.containerNumber || ''}" />
             </div>
             ${neiHint}
             ${extrasHtml}
             ${addExtraBtn}
-            <details class="note-toggle">
+            <details class="note-toggle"${noteVal ? ' open' : ''}>
               <summary>Athugasemd <span class="note-toggle-hint">(valkvætt)</span><span class="note-arrow">▾</span></summary>
-              <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;margin-top:0.5rem;"></textarea>
+              <textarea id="completion-note-${job.id}" class="container-full-input" rows="2" placeholder="Var eitthvað að? Skráðu það hér..." style="resize:none;margin-top:0.5rem;">${noteVal}</textarea>
             </details>
-            <button class="btn btn-green" style="width:100%;margin-top:0.75rem;" onclick="markDone('${job.id}')">Sótt ✓</button>
+            <button class="btn btn-green" style="width:100%;margin-top:0.75rem;" onclick="${submitFn}">${submitLabel}</button>
           </div>
-          <div style="margin-top:0.5rem;"><button class="btn btn-mid btn-sm" onclick="showDelayForm('${job.id}')">⏸ Fresta</button></div>`;
+          ${extraBtns}`;
       }
+    } else if (job.status === 'done' && !isFixingThis) {
+      actionBlock = `<div class="status-actions" style="margin-top:0.5rem;"><button class="btn btn-outline btn-sm" onclick="startFixDone('${job.id}')">✏ Laga</button></div>`;
     }
 
     // Delay form (shown when driver clicks Fresta)
@@ -1100,6 +1113,132 @@
     await fsSetJob(updated);
     window.switchTab('klarud');
     showToast('Lokið! ' + (isKarJob ? 'Karnúmer' : 'Gámanúmer') + ' skráð ✓');
+  };
+
+  // Reverse the rental state changes that the original markDone applied.
+  // Used before re-running rental logic when driver lagar a kláraða beiðni.
+  async function reverseRentalLogic(oldJob) {
+    if (!GAM_JOB_TYPES.includes(oldJob.jobType)) return;
+    const now = new Date().toISOString();
+    const restoreFromSummary = async (s) => {
+      const matches = appData.containers.filter(c => c.id === s.containerId);
+      if (matches.length === 0) return;
+      const target = matches.find(c => c.status === 'heima') || matches[0];
+      await fsSetContainer({
+        ...target, status: 'utleigu',
+        company: s.company || '', where: s.where || '',
+        placedAt: s.placedAt || null,
+        efni: s.efni || '', efniLabel: s.efniLabel || '',
+        updatedAt: now
+      });
+    };
+    const undoStart = async (num, jobCompany, jobWhere) => {
+      if (!num || num === 'Nei') return;
+      const matches = appData.containers.filter(c => c.id === num);
+      if (matches.length === 0) return;
+      const target = matches.find(c => c.status === 'utleigu' && c.company === jobCompany && c.where === jobWhere)
+                  || matches.find(c => c.status === 'utleigu')
+                  || matches[0];
+      await fsSetContainer({
+        ...target, status: 'heima',
+        company: '', where: '', placedAt: null, efni: '', efniLabel: '',
+        updatedAt: now
+      });
+    };
+    if (oldJob.rentalSummaries) {
+      for (const s of oldJob.rentalSummaries) {
+        if (s.type === 'start') await undoStart(s.containerId, s.company, s.where);
+        else await restoreFromSummary(s);
+      }
+    }
+    const hasStartSummary = (oldJob.rentalSummaries || []).some(s => s.type === 'start');
+    if (!hasStartSummary) {
+      if (oldJob.jobType === 'fara') {
+        await undoStart(oldJob.containerNumber, oldJob.company, oldJob.where);
+      } else if (oldJob.jobType === 'skipta') {
+        const tek = oldJob.containerNumberTekinn;
+        const set = oldJob.containerNumberSettur;
+        if (set && set !== 'Nei' && set !== tek) {
+          await undoStart(set, oldJob.company, oldJob.where);
+        }
+      }
+    }
+  }
+
+  window.startFixDone = function(id) {
+    const job = appData.jobs.find(j => j.id === id);
+    if (!job) return;
+    _fixingDoneId = id;
+    // Pre-populate extras map with existing extras so they show in the form
+    _extrasMap[id] = (job.extraContainers || []).map((e, i) => ({
+      key: i,
+      action: e.action,
+      efni: e.efni,
+      efniLabel: e.efniLabel,
+      number: e.number
+    }));
+    renderAll();
+  };
+
+  window.cancelFixDone = function() {
+    if (_fixingDoneId) delete _extrasMap[_fixingDoneId];
+    _fixingDoneId = null;
+    renderAll();
+  };
+
+  window.saveFixDone = async function(id, isSkipta) {
+    const job = appData.jobs.find(j => j.id === id);
+    if (!job) return;
+    const isKarJob = ['taka-kar','losa-kar','skipta-kari','vantar-kar'].includes(job.jobType);
+    const unitName = isKarJob ? 'karnúmer' : 'gámanúmer';
+    const updated = { ...job, status: 'done', updatedAt: new Date().toISOString() };
+    if (isSkipta) {
+      const tekinn = (document.getElementById('container-tekinn-'+id)||{value:''}).value.trim();
+      const settur = (document.getElementById('container-settur-'+id)||{value:''}).value.trim();
+      if (!tekinn || !settur) { showToast('Sláðu inn bæði ' + unitName); return; }
+      updated.containerNumberTekinn = tekinn;
+      updated.containerNumberSettur = settur;
+    } else {
+      const num = (document.getElementById('container-'+id)||{value:''}).value.trim();
+      if (!num) { showToast('Sláðu inn ' + unitName); return; }
+      updated.containerNumber = num;
+    }
+    const completionNote = (document.getElementById('completion-note-'+id)||{value:''}).value.trim();
+    if (completionNote) updated.completionNote = completionNote;
+    else delete updated.completionNote;
+    // Collect aukagám from current input values
+    if (!isKarJob && _extrasMap[id] && _extrasMap[id].length > 0) {
+      const extras = [];
+      for (const e of _extrasMap[id]) {
+        const numEl = document.getElementById(`extra-num-${id}-${e.key}`);
+        const num = numEl ? numEl.value.trim() : (e.number || '');
+        if (!num) { showToast('Sláðu inn númer fyrir alla aukagáma (eða fjarlægðu þá)'); return; }
+        extras.push({
+          action: e.action,
+          efni: e.efni || '',
+          efniLabel: e.efniLabel || '',
+          number: num,
+          addedBy: e.addedBy || currentDriverName || 'Bílstjóri'
+        });
+      }
+      updated.extraContainers = extras;
+    } else {
+      delete updated.extraContainers;
+    }
+    // Reverse old rental changes, then re-apply with new data
+    await reverseRentalLogic(job);
+    delete updated.rentalSummaries;
+    delete updated.rentalWarnings;
+    const result = await applyContainerRentalLogic(updated, updated.workDate);
+    if (result) {
+      if (result.summaries.length) updated.rentalSummaries = result.summaries;
+      if (result.warnings.length) updated.rentalWarnings = result.warnings;
+      updated.rentalProcessed = true;
+    }
+    _fixingDoneId = null;
+    delete _extrasMap[id];
+    await fsSetJob(updated);
+    showToast('Breytingar vistaðar ✓');
   };
 
   window.showDelayForm = function(id) {
