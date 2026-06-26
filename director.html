@@ -1207,7 +1207,7 @@
         </div>
       </div>`;
     }).join('');
-    panelEl.innerHTML = `<div class="billing-panel-header">📋 Útleiguskjal — bíður skráningar (${items.length})</div>${cards}`;
+    panelEl.innerHTML = `<div class="billing-panel-header">📋 Gámaskjal — bíður skráningar (${items.length})</div>${cards}`;
   }
 
   function renderUtleiga() {
@@ -1511,8 +1511,8 @@
       }).join('');
       const anyNotSaved = summaries.some(s => !s.inBillingPanel);
       const actions = anyNotSaved
-        ? `<div class="rental-actions"><button class="btn btn-green btn-sm" onclick="rentalVista('${job.id}')">✓ Vista í útleiguskjal</button></div>`
-        : `<div class="rental-saved">✓ Vistað í útleiguskjal — sjá Í útleigu</div>`;
+        ? `<div class="rental-actions"><button class="btn btn-green btn-sm" onclick="rentalVista('${job.id}')">📋 Færa í gámaskjal</button></div>`
+        : `<div class="rental-saved">✓ Fært í gámaskjal — sjá Gámar</div>`;
       html += `<div class="rental-summary"><div class="rental-summary-title">Útleigusaga</div>${items}${actions}</div>`;
     }
     return html;
@@ -1554,7 +1554,7 @@
       rentalSummaries: job.rentalSummaries.map(s => ({ ...s, inBillingPanel: true, jobId }))
     };
     await fsSetJob(updated);
-    showToast(hasDirty ? '⚠ Vistað — en gámaskráning ekki uppfærð' : 'Vistað í útleiguskjal ✓');
+    showToast(hasDirty ? '⚠ Fært — en gámaskráning ekki uppfærð' : 'Fært í gámaskjal ✓');
   };
 
   window.markBillingDone = async function(jobId, containerId, placedAt) {
@@ -2354,7 +2354,7 @@
           <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
           ${job.status === 'delayed' ? `<button class="btn btn-rust btn-sm" onclick="resumeDelayedJob('${job.id}')">▶ Setja verkefni af stað</button>` : ''}
           ${(job.status !== 'done' && job.status !== 'archived' && job.status !== 'draft' && _completingJobId !== job.id) ? `<button class="btn btn-green btn-sm" onclick="showCompleteForm('${job.id}')">✓ Klára núna</button>` : ''}
-          ${job.status === 'done' && GAM_JOB_TYPES.includes(job.jobType) && !(job.rentalSummaries || []).some(s => s.type === 'start') && (['fara','losa','skipta'].includes(job.jobType) || (job.extraContainers || []).some(e => e.action === 'setja')) ? `<button class="btn btn-green btn-sm" onclick="recomputeRental('${job.id}')">📋 Skrá í útleiguskjal</button>` : ''}
+          ${job.status === 'done' && GAM_JOB_TYPES.includes(job.jobType) && !(job.rentalSummaries || []).some(s => s.type === 'start') && (['fara','losa','skipta'].includes(job.jobType) || (job.extraContainers || []).some(e => e.action === 'setja')) ? `<button class="btn btn-green btn-sm" onclick="recomputeRental('${job.id}')">📋 Færa í gámaskjal</button>` : ''}
           ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button><button class="btn btn-outline btn-sm" onclick="archiveJob('${job.id}')" style="border-color:var(--muted);color:var(--muted);">🗄 Færa í geymslu</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
         </div>
@@ -2771,7 +2771,7 @@
   window.recomputeRental = async function(id) {
     const job = appData.jobs.find(j => j.id === id);
     if (!job) return;
-    if (!confirm('Skrá gámaflutninga þessarar beiðni í útleiguskjalið?')) return;
+    if (!confirm('Færa gámaflutninga þessarar beiðni í gámaskjalið?')) return;
     await reverseRentalLogic(job);
     const cleaned = { ...job };
     delete cleaned.rentalSummaries;
@@ -2785,7 +2785,7 @@
       cleaned.rentalProcessed = true;
     }
     await fsSetJob(cleaned);
-    showToast('Skráð í útleiguskjal ✓');
+    showToast('Fært í gámaskjal ✓');
   };
 
   window.reopenJob = async function(id) {
@@ -2825,7 +2825,7 @@
     if (hasRental) {
       const s = job.rentalSummaries[0];
       const wherePart = s.company && s.where ? `${s.company} (${s.where})` : (s.company || s.where || '');
-      const msg = `Þessi beiðni var tengd gámi #${s.containerId} sem fór úr útleigu hjá ${wherePart} í ${daysLabel(s.days)}.\n\nViltu líka breyta stöðu gámsins í útleiguskjalinu?`;
+      const msg = `Þessi beiðni var tengd gámi #${s.containerId} sem fór úr útleigu hjá ${wherePart} í ${daysLabel(s.days)}.\n\nViltu líka breyta stöðu gámsins í gámaskjalinu?`;
       const goEdit = confirm(msg);
       await fsDeleteJob(id);
       showToast('Beiðni eytt');
