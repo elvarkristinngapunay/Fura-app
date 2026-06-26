@@ -904,6 +904,14 @@
       efniLabel: opts.efniLabel || job.materialLabel || '',
       jobType: job.jobType
     });
+    const warnIfAlreadyOut = (c, newCompany, newWhere) => {
+      if (c.status === 'utleigu' && c.placedAt
+          && (c.company !== (newCompany || '') || c.where !== (newWhere || ''))) {
+        const placedFmt = c.placedAt.split('-').reverse().join('.');
+        const prev = [c.company, c.where].filter(Boolean).join(', ') || 'óþekktum stað';
+        warnings.push(`Gámur #${c.id} var nú þegar í útleigu hjá ${prev} (settur ${placedFmt}). Stjórnandi þarf að skoða hvort eldri útleigan var rétt skráð.`);
+      }
+    };
     const endRental = (c) => {
       const summary = (c.status === 'utleigu' && c.placedAt) ? {
         containerId: c.id, company: c.company || '', where: c.where || '',
@@ -922,6 +930,7 @@
         if (num && num !== 'Nei') {
           const c = findForIntent(num, 'start');
           if (c) {
+            warnIfAlreadyOut(c, job.company, job.where);
             await fsSetContainer(startRental(c));
             summaries.push(makeStartSummary(c));
           } else warnings.push(buildNotFoundWarning(num));
@@ -988,6 +997,7 @@
           if (set && set !== 'Nei') {
             const cS = findForIntent(set, 'start');
             if (cS) {
+              warnIfAlreadyOut(cS, job.company, job.where);
               await fsSetContainer(startRental(cS));
               summaries.push(makeStartSummary(cS));
             } else warnings.push(buildNotFoundWarning(set));
@@ -1023,6 +1033,7 @@
           if (!c) {
             warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
           } else {
+            warnIfAlreadyOut(c, job.company, job.where);
             await fsSetContainer(startRental(c));
             const startSum = makeStartSummary(c, { efni: extra.efni, efniLabel: extra.efniLabel });
             startSum.fromExtra = true;
