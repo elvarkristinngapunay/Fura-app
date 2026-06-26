@@ -2343,7 +2343,7 @@
           if (job.extraContainers && job.extraContainers.length > 0) {
             for (const e of job.extraContainers) {
               const efniTxt = e.action === 'taka' ? (e.efni === 'annad' ? (e.efniLabel || 'Annað') : (e.efni === 'jarn' ? 'Járn' : (e.efni === 'timbur' ? 'Timbur' : ''))) : '';
-              const actionLbl = e.action === 'taka' ? 'AUKAGÁMUR · TAKA' + (efniTxt ? ' · ' + efniTxt.toUpperCase() : '') : 'AUKAGÁMUR · SETJA';
+              const actionLbl = e.action === 'taka' ? 'Aukagámur tekinn' + (efniTxt ? ' · ' + efniTxt : '') : 'Aukagámur settur';
               const dirty = isDirty(e.number);
               html += `<div class="gam-num-box gam-num-extra${dirty ? ' gam-num-warn' : ''}">
                 <div class="gam-num-label">${actionLbl}</div>
