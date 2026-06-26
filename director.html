@@ -469,14 +469,8 @@
     <!-- NEW JOB -->
     <div class="tab-panel" id="tab-new-job">
       <div class="form-card" id="form-card-newjob">
-        <div id="edit-mode-banner" style="display:none;background:#fff8e8;border-left:4px solid var(--yellow);padding:0.75rem 1rem;border-radius:6px;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
-          <div>
-            <div style="font-size:0.7rem;font-weight:800;color:#8a5a2b;letter-spacing:0.06em;text-transform:uppercase;">Þú ert að breyta verkefni <span id="edit-mode-seq"></span></div>
-            <div style="font-size:0.78rem;color:#8a5a2b;margin-top:0.15rem;">Breyttu þeim reitum sem þú þarft og smelltu <strong>Uppfæra</strong>. Verkefnið er EKKI sent út aftur.</div>
-          </div>
-          <button class="btn btn-outline btn-sm" onclick="exitEditMode()" style="flex-shrink:0;">Hætta við</button>
-        </div>
         <h3 id="newjob-title">Ný beiðni</h3>
+        <h3 id="edit-job-title" style="display:none;">Breyta beiðni <span id="edit-mode-seq" style="color:var(--rust);"></span></h3>
 
         <div class="form-group">
           <label>Dagsetning</label>
@@ -2076,9 +2070,9 @@
     _editingJobStatus = job.status;
     // Show the new-job form as an overlay modal — no tab switch
     document.getElementById('tab-new-job').classList.add('edit-mode-active');
-    document.getElementById('edit-mode-banner').style.display = 'flex';
     document.getElementById('edit-mode-seq').textContent = job.seq ? '#' + job.seq : '#' + id.slice(-4);
     document.getElementById('newjob-title').style.display = 'none';
+    document.getElementById('edit-job-title').style.display = 'block';
     document.getElementById('senda-btn').textContent = '✓ Uppfæra';
     document.getElementById('cancel-edit-btn').style.display = 'inline-block';
     // Scroll the form-card into view
@@ -2093,8 +2087,8 @@
     _editingJobId = null;
     _editingJobStatus = null;
     document.getElementById('tab-new-job').classList.remove('edit-mode-active');
-    document.getElementById('edit-mode-banner').style.display = 'none';
     document.getElementById('newjob-title').style.display = 'block';
+    document.getElementById('edit-job-title').style.display = 'none';
     document.getElementById('senda-btn').textContent = 'Senda beiðni';
     document.getElementById('cancel-edit-btn').style.display = 'none';
     const addExtraBtn = document.getElementById('em-add-extra-btn');
