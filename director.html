@@ -2318,32 +2318,27 @@
           const unitShort = k ? 'Kar' : 'Gám';
           const unitLong = k ? 'Karnúmer' : 'Gámanúmer';
           const isDirty = (n) => n && n !== 'Nei' && !/^\d+$/.test(n) && !appData.containers.some(c => c.id === n);
-          const actionTag = (kind) => {
-            if (kind === 'taka') return `<div class="gam-num-action gam-num-action-taka">TAKA</div>`;
-            if (kind === 'setja') return `<div class="gam-num-action gam-num-action-setja">SETJA</div>`;
-            if (kind === 'losa') return `<div class="gam-num-action gam-num-action-losa">TAKA + SETJA</div>`;
-            return '';
-          };
-          const numBox = (label, num, dirty, kind) => `<div class="gam-num-box${dirty ? ' gam-num-warn' : ''}">
+          const numBox = (label, num, dirty) => `<div class="gam-num-box${dirty ? ' gam-num-warn' : ''}">
             <div class="gam-num-label">${label}</div>
             <div class="gam-num-value">${escHtml(num || '—')}</div>
-            ${actionTag(kind)}
             ${dirty ? `<div class="gam-num-dirty-tag">⚠ Inniheldur texta — ekki tengt raunverulegum gám</div>` : ''}
           </div>`;
-          // Decide action kind for the main numBox based on jobType
-          const mainKindMap = {
-            sekja: 'taka', 'taka-kar': 'taka',
-            fara: 'setja', 'vantar-kar': 'setja',
-            losa: 'losa', 'losa-kar': 'losa'
+          // Label the single numBox based on jobType so "Gám tekinn" / "Gám settur" is clear
+          const settLabel = k ? 'Kar sett' : 'Gám settur';
+          const tekinnLabel = k ? 'Kar tekið' : 'Gám tekinn';
+          const labelByJobType = {
+            sekja: tekinnLabel, 'taka-kar': tekinnLabel,
+            fara: settLabel, 'vantar-kar': settLabel,
+            losa: tekinnLabel + ' og settur', 'losa-kar': tekinnLabel + ' og sett'
           };
-          const mainKind = mainKindMap[job.jobType] || '';
+          const singleLabel = labelByJobType[job.jobType] || unitLong;
           let html = '';
           if (job.containerNumberTekinn) {
             const dirtyT = isDirty(job.containerNumberTekinn);
             const dirtyS = isDirty(job.containerNumberSettur);
-            html = `<div class="gam-num-row">${numBox(`${unitShort} tekinn`, job.containerNumberTekinn, dirtyT, 'taka')}${numBox(`${unitShort} settur`, job.containerNumberSettur, dirtyS, 'setja')}</div>`;
+            html = `<div class="gam-num-row">${numBox(`${unitShort} tekinn`, job.containerNumberTekinn, dirtyT)}${numBox(`${unitShort} settur`, job.containerNumberSettur, dirtyS)}</div>`;
           } else if (job.containerNumber) {
-            html = numBox(unitLong, job.containerNumber, isDirty(job.containerNumber), mainKind);
+            html = numBox(singleLabel, job.containerNumber, isDirty(job.containerNumber));
           }
           if (job.extraContainers && job.extraContainers.length > 0) {
             for (const e of job.extraContainers) {
