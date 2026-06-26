@@ -1161,7 +1161,7 @@
         if (s.inBillingPanel) items.push({ ...s, jobId: job.id, jobDate: job.date, jobType: s.jobType || job.jobType, dirtyWarning });
       }
     }
-    return items.sort((a, b) => (b.returnedAt || '').localeCompare(a.returnedAt || ''));
+    return items.sort((a, b) => (b.returnedAt || b.placedAt || '').localeCompare(a.returnedAt || a.placedAt || ''));
   }
 
   function renderBillingPanel() {
@@ -1177,22 +1177,29 @@
     layoutEl.classList.add('has-billing');
     panelEl.style.display = 'block';
     const cards = items.map(s => {
+      const isStart = s.type === 'start';
       const placedFmt = fmtIcelandicDate(s.placedAt);
-      const returnedFmt = fmtIcelandicDate(s.returnedAt);
+      const returnedFmt = isStart ? '' : fmtIcelandicDate(s.returnedAt);
       const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
       const wherePart = s.company && s.where ? `${escHtml(s.company)} — ${escHtml(s.where)}` : escHtml(s.company || s.where || '—');
       const jobTypeText = jobTypeRentalLabel(s.jobType);
+      const title = isStart ? 'Útleiga byrjuð' : 'Vantar skráningu';
+      const datesLine = isStart
+        ? `<div class="billing-card-line muted">Settur þann ${placedFmt}</div>`
+        : `<div class="billing-card-line">⏱ <strong>${daysLabel(s.days)}</strong></div><div class="billing-card-line muted">${placedFmt} → ${returnedFmt}</div>`;
+      const copyAttrs = isStart
+        ? `data-num="${escHtml(s.containerId)}" data-from="${placedFmt}" data-to="" data-days=""`
+        : `data-num="${escHtml(s.containerId)}" data-from="${placedFmt}" data-to="${returnedFmt}" data-days="${s.days}"`;
       return `<div class="billing-card${s.dirtyWarning ? ' billing-card-warn' : ''}">
-        <div class="billing-card-title">Vantar skráningu</div>
+        <div class="billing-card-title">${title}</div>
         <div class="billing-card-num">Gámur #${escHtml(s.containerId)}</div>
         ${s.dirtyWarning ? `<div class="billing-card-dirty">⚠ Gámaskráning ekki uppfærð — gámanúmer er ekki hreint</div>` : ''}
         ${jobTypeText ? `<div class="billing-card-line billing-jobtype-line">🚛 <strong>${jobTypeText}</strong></div>` : ''}
         <div class="billing-card-line"><strong>📍 ${wherePart}</strong></div>
-        <div class="billing-card-line">⏱ <strong>${daysLabel(s.days)}</strong></div>
-        <div class="billing-card-line muted">${placedFmt} → ${returnedFmt}</div>
+        ${datesLine}
         ${efniText ? `<div class="billing-card-line">♻ <span class="billing-efni">${escHtml(efniText)}</span></div>` : ''}
         <div class="billing-card-copy">
-          <button class="rental-copy-btn" data-num="${escHtml(s.containerId)}" data-from="${placedFmt}" data-to="${returnedFmt}" data-days="${s.days}" onclick="copyRentalRow(this)">📋 Afrita fyrir Excel</button>
+          <button class="rental-copy-btn" ${copyAttrs} onclick="copyRentalRow(this)">📋 Afrita fyrir Excel</button>
         </div>
         <div class="billing-card-actions" style="display:flex;gap:0.4rem;">
           <button class="btn btn-outline btn-sm" style="flex:1;" onclick="editJob('${escHtml(s.jobId)}')">Breyta</button>
@@ -1200,7 +1207,7 @@
         </div>
       </div>`;
     }).join('');
-    panelEl.innerHTML = `<div class="billing-panel-header">📋 Heimkoma — bíður skráningar (${items.length})</div>${cards}`;
+    panelEl.innerHTML = `<div class="billing-panel-header">📋 Útleiguskjal — bíður skráningar (${items.length})</div>${cards}`;
   }
 
   function renderUtleiga() {
@@ -1485,10 +1492,17 @@
     if (summaries.length > 0) {
       const items = summaries.map((s, i) => {
         const placedFmt = fmtIcelandicDate(s.placedAt);
-        const returnedFmt = fmtIcelandicDate(s.returnedAt);
         const efniText = s.efni === 'annad' ? (s.efniLabel || 'Annað') : (efniLabels[s.efni] || '');
         const wherePart = s.company && s.where ? `${s.company} (${s.where})` : (s.company || s.where || '');
         const jobTypeText = jobTypeRentalLabel(s.jobType || job.jobType);
+        if (s.type === 'start') {
+          return `<div class="rental-summary-line">
+            <div><strong>Gámur #${escHtml(s.containerId)}</strong> fór út til <strong>${escHtml(wherePart)}</strong></div>
+            <div class="rental-dates">Settur þann ${placedFmt}${efniText ? ` · Efni: <strong>${escHtml(efniText)}</strong>` : ''}</div>
+            ${jobTypeText ? `<div class="rental-jobtype-line">🚛 <strong>${jobTypeText}</strong></div>` : ''}
+          </div>`;
+        }
+        const returnedFmt = fmtIcelandicDate(s.returnedAt);
         return `<div class="rental-summary-line">
           <div><strong>Gámur #${escHtml(s.containerId)}</strong> var hjá <strong>${escHtml(wherePart)}</strong> í <strong>${daysLabel(s.days)}</strong></div>
           <div class="rental-dates">${placedFmt} → ${returnedFmt}${efniText ? ` · Efni: <strong>${escHtml(efniText)}</strong>` : ''}</div>
@@ -2145,18 +2159,28 @@
         updatedAt: now
       });
     };
-    // Restore end events (recorded in summaries)
+    // Restore END events (gámur was sótt — set it back to utleigu) and
+    // reverse START events (gámur was settur út — set it back to heima).
     if (oldJob.rentalSummaries) {
-      for (const s of oldJob.rentalSummaries) await restoreFromSummary(s);
+      for (const s of oldJob.rentalSummaries) {
+        if (s.type === 'start') {
+          await undoStart(s.containerId, s.company, s.where);
+        } else {
+          await restoreFromSummary(s);
+        }
+      }
     }
-    // Reverse pure-start events (no summary written)
-    if (oldJob.jobType === 'fara') {
-      await undoStart(oldJob.containerNumber, oldJob.company, oldJob.where);
-    } else if (oldJob.jobType === 'skipta') {
-      const tek = oldJob.containerNumberTekinn;
-      const set = oldJob.containerNumberSettur;
-      if (set && set !== 'Nei' && set !== tek) {
-        await undoStart(set, oldJob.company, oldJob.where);
+    // Backwards-compat: old jobs without start summaries
+    const hasStartSummary = (oldJob.rentalSummaries || []).some(s => s.type === 'start');
+    if (!hasStartSummary) {
+      if (oldJob.jobType === 'fara') {
+        await undoStart(oldJob.containerNumber, oldJob.company, oldJob.where);
+      } else if (oldJob.jobType === 'skipta') {
+        const tek = oldJob.containerNumberTekinn;
+        const set = oldJob.containerNumberSettur;
+        if (set && set !== 'Nei' && set !== tek) {
+          await undoStart(set, oldJob.company, oldJob.where);
+        }
       }
     }
   }
@@ -2543,6 +2567,19 @@
       updatedAt: now
     });
 
+    // Summary for a START event (gámur fer út) — so director can vista í
+    // útleiguskjal eins og við lokun útleigu.
+    const makeStartSummary = (c, opts = {}) => ({
+      type: 'start',
+      containerId: c.id,
+      company: job.company || '',
+      where: job.where || '',
+      placedAt: today,
+      efni: opts.efni || job.material || '',
+      efniLabel: opts.efniLabel || job.materialLabel || '',
+      jobType: job.jobType
+    });
+
     const endRental = (c) => {
       const summary = (c.status === 'utleigu' && c.placedAt) ? {
         containerId: c.id,
@@ -2564,8 +2601,10 @@
       case 'fara': { // Vantar gám: clock starts
         if (num && num !== 'Nei') {
           const c = findForIntent(num, 'start');
-          if (c) await fsSetContainer(startRental(c));
-          else warnings.push(buildNotFoundWarning(num));
+          if (c) {
+            await fsSetContainer(startRental(c));
+            summaries.push(makeStartSummary(c));
+          } else warnings.push(buildNotFoundWarning(num));
         }
         break;
       }
@@ -2592,6 +2631,7 @@
               if (summary) summaries.push(summary);
             }
             await fsSetContainer(startRental(c));
+            summaries.push(makeStartSummary(c));
           } else {
             warnings.push(buildNotFoundWarning(num));
           }
@@ -2609,6 +2649,7 @@
               if (summary) summaries.push(summary);
             }
             await fsSetContainer(startRental(c));
+            summaries.push(makeStartSummary(c));
           } else {
             warnings.push(buildNotFoundWarning(tek));
           }
@@ -2626,8 +2667,10 @@
           }
           if (set && set !== 'Nei') {
             const cS = findForIntent(set, 'start');
-            if (cS) await fsSetContainer(startRental(cS));
-            else warnings.push(buildNotFoundWarning(set));
+            if (cS) {
+              await fsSetContainer(startRental(cS));
+              summaries.push(makeStartSummary(cS));
+            } else warnings.push(buildNotFoundWarning(set));
           }
         }
         break;
@@ -2660,6 +2703,10 @@
             warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
           } else {
             await fsSetContainer(startRental(c));
+            const startSum = makeStartSummary(c, { efni: extra.efni, efniLabel: extra.efniLabel });
+            startSum.fromExtra = true;
+            startSum.addedBy = extra.addedBy || '';
+            summaries.push(startSum);
           }
         }
       }
