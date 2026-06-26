@@ -970,6 +970,7 @@
         break;
       }
       case 'losa': {
+        // Sama gámur lostaður og settur aftur — bara EITT lokunarspjald í gámaskjal
         if (num && num !== 'Nei') {
           const c = findForIntent(num, 'end') || findForIntent(num, 'start');
           if (c) {
@@ -978,7 +979,6 @@
               if (summary) summaries.push(summary);
             }
             await fsSetContainer(startRental(c));
-            summaries.push(makeStartSummary(c));
           } else {
             warnings.push(buildNotFoundWarning(num));
           }
@@ -989,6 +989,7 @@
         const tek = job.containerNumberTekinn;
         const set = job.containerNumberSettur;
         if (tek && set && tek === set && tek !== 'Nei') {
+          // Skipta með sama númeri = losa — bara eitt lokunarspjald
           const c = findForIntent(tek, 'end') || findForIntent(tek, 'start');
           if (c) {
             if (c.status === 'utleigu' && c.placedAt) {
@@ -996,7 +997,6 @@
               if (summary) summaries.push(summary);
             }
             await fsSetContainer(startRental(c));
-            summaries.push(makeStartSummary(c));
           } else {
             warnings.push(buildNotFoundWarning(tek));
           }

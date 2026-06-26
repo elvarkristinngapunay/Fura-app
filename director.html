@@ -2648,7 +2648,9 @@
         }
         break;
       }
-      case 'losa': { // Losa gám: clock stops + new clock starts (same gámur)
+      case 'losa': { // Losa gám: same gámur, clock stops + new clock starts.
+        // Only the END card goes into gámaskjal — director and driver know what
+        // a losun is, so the new start clock is just stored on the gám record.
         if (num && num !== 'Nei') {
           const c = findForIntent(num, 'end') || findForIntent(num, 'start');
           if (c) {
@@ -2657,7 +2659,6 @@
               if (summary) summaries.push(summary);
             }
             await fsSetContainer(startRental(c));
-            summaries.push(makeStartSummary(c));
           } else {
             warnings.push(buildNotFoundWarning(num));
           }
@@ -2668,6 +2669,7 @@
         const tek = job.containerNumberTekinn;
         const set = job.containerNumberSettur;
         if (tek && set && tek === set && tek !== 'Nei') {
+          // Same as losa — only end card, new start clock recorded on gám only
           const c = findForIntent(tek, 'end') || findForIntent(tek, 'start');
           if (c) {
             if (c.status === 'utleigu' && c.placedAt) {
@@ -2675,7 +2677,6 @@
               if (summary) summaries.push(summary);
             }
             await fsSetContainer(startRental(c));
-            summaries.push(makeStartSummary(c));
           } else {
             warnings.push(buildNotFoundWarning(tek));
           }
