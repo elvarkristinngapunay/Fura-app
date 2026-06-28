@@ -1484,8 +1484,42 @@
 
   // ── RENTAL SUMMARY BLOCK ON LOKIÐ JOB CARDS ──────────────────────────────
 
+  // Rebuild any SETJA (start) summaries that a job SHOULD have but is missing
+  // — for jobs completed before the start-summary feature existed. Reads only
+  // job fields, never mutates container state, so it's safe to call anytime.
+  function backfillStartSummaries(job) {
+    if (!GAM_JOB_TYPES.includes(job.jobType)) return [];
+    const existing = job.rentalSummaries || [];
+    const hasStart = (cid) => existing.some(s => s.type === 'start' && String(s.containerId) === String(cid));
+    const mk = (cid, efni, efniLabel) => ({
+      type: 'start', containerId: cid,
+      company: job.company || '', where: job.where || '',
+      placedAt: job.workDate || job.date || todayISO(),
+      efni: efni || job.material || '', efniLabel: efniLabel || job.materialLabel || '',
+      jobType: job.jobType
+    });
+    const out = [];
+    if (job.jobType === 'fara' && job.containerNumber && job.containerNumber !== 'Nei' && !hasStart(job.containerNumber)) {
+      out.push(mk(job.containerNumber));
+    }
+    if (job.jobType === 'skipta') {
+      const tek = job.containerNumberTekinn, set = job.containerNumberSettur;
+      if (set && set !== 'Nei' && set !== tek && !hasStart(set)) out.push(mk(set));
+    }
+    for (const e of (job.extraContainers || [])) {
+      if (e.action === 'setja' && e.number && e.number !== 'Nei' && !hasStart(e.number)) {
+        const s = mk(e.number, e.efni, e.efniLabel);
+        s.fromExtra = true; s.addedBy = e.addedBy || '';
+        out.push(s);
+      }
+    }
+    return out;
+  }
+
   function rentalSummaryBlock(job) {
-    const summaries = job.rentalSummaries || [];
+    const stored = job.rentalSummaries || [];
+    const backfill = (job.status === 'done') ? backfillStartSummaries(job) : [];
+    const summaries = [...stored, ...backfill];
     const warnings = job.rentalWarnings || [];
     if (summaries.length === 0 && warnings.length === 0) return '';
 
@@ -1545,7 +1579,7 @@
 
   window.rentalVista = async function(jobId) {
     const job = appData.jobs.find(j => j.id === jobId);
-    if (!job || !job.rentalSummaries) return;
+    if (!job) return;
     // If gámanúmer is dirty (has text + not in system), make sure director knows
     // the Gámar alls list was NOT updated automatically
     const hasDirty = (job.rentalWarnings || []).some(w => w.includes('inniheldur texta'));
@@ -1553,9 +1587,12 @@
       const ok = confirm('⚠ Gámanúmer þessa verkefnis er ekki hreint — það hefur texta og er ekki tengt raunverulegum gám í Gámar alls.\n\nEf þú vistar núna:\n• Innheimtuspjald birtist eins og venjulega\n• EN gámaskráningin í "Gámar alls" er EKKI uppfærð\n\nMæli með: Smelltu fyrst á "Lagfæra gámanúmer" og leiðréttu númerið — þá verður allt uppfært í einu höggi.\n\nHalda samt áfram með óhreinu númeri?');
       if (!ok) return;
     }
+    // Merge in any missing SETJA summaries (old jobs) so the whole movement
+    // lands in gámaskjal in one click.
+    const merged = [...(job.rentalSummaries || []), ...backfillStartSummaries(job)];
     const updated = {
       ...job,
-      rentalSummaries: job.rentalSummaries.map(s => ({ ...s, inBillingPanel: true, jobId }))
+      rentalSummaries: merged.map(s => ({ ...s, inBillingPanel: true, jobId }))
     };
     await fsSetJob(updated);
     showToast(hasDirty ? '⚠ Fært — en gámaskráning ekki uppfærð' : 'Fært í gámaskjal ✓');
@@ -2367,7 +2404,6 @@
           <button class="btn btn-outline btn-sm" onclick="printJob('${job.id}')">🖨 Prenta</button>
           ${job.status === 'delayed' ? `<button class="btn btn-rust btn-sm" onclick="resumeDelayedJob('${job.id}')">▶ Setja verkefni af stað</button>` : ''}
           ${(job.status !== 'done' && job.status !== 'archived' && job.status !== 'draft' && _completingJobId !== job.id) ? `<button class="btn btn-green btn-sm" onclick="showCompleteForm('${job.id}')">✓ Klára núna</button>` : ''}
-          ${job.status === 'done' && GAM_JOB_TYPES.includes(job.jobType) && !(job.rentalSummaries || []).some(s => s.type === 'start') && (['fara','losa','skipta'].includes(job.jobType) || (job.extraContainers || []).some(e => e.action === 'setja')) ? `<button class="btn btn-green btn-sm" onclick="recomputeRental('${job.id}')">📋 Færa í gámaskjal</button>` : ''}
           ${job.status === 'done' ? `<button class="btn btn-ink btn-sm" onclick="reopenJob('${job.id}')">Opna aftur</button><button class="btn btn-outline btn-sm" onclick="archiveJob('${job.id}')" style="border-color:var(--muted);color:var(--muted);">🗄 Færa í geymslu</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="deleteJob('${job.id}')">Eyða</button>
         </div>
@@ -2815,26 +2851,6 @@
     delete _extrasMapDir[id];
     await fsSetJob(updated);
     showToast('Beiðni skráð sem lokin ✓');
-  };
-
-  window.recomputeRental = async function(id) {
-    const job = appData.jobs.find(j => j.id === id);
-    if (!job) return;
-    if (!confirm('Færa gámaflutninga þessarar beiðni í gámaskjalið?')) return;
-    await reverseRentalLogic(job);
-    const cleaned = { ...job };
-    delete cleaned.rentalSummaries;
-    delete cleaned.rentalWarnings;
-    const result = await applyContainerRentalLogic(cleaned, cleaned.workDate);
-    if (result) {
-      if (result.summaries.length) {
-        cleaned.rentalSummaries = result.summaries.map(s => ({ ...s, inBillingPanel: true, jobId: id }));
-      }
-      if (result.warnings.length) cleaned.rentalWarnings = result.warnings;
-      cleaned.rentalProcessed = true;
-    }
-    await fsSetJob(cleaned);
-    showToast('Fært í gámaskjal ✓');
   };
 
   window.reopenJob = async function(id) {
