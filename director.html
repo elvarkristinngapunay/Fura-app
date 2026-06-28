@@ -1082,6 +1082,8 @@
   const sizeLabels = { '15m3': '15 m³', 'litill': 'Lítill', 'stor': 'Stór' };
   const sergerdLabels = { 'timburgamur': 'Timburgámur', 'lokadur': 'Lokaður' };
   const efniLabels = { 'jarn': 'Járn', 'timbur': 'Timbur', 'annad': 'Annað' };
+  // Painted number ignoring a trailing letter suffix: 30A→30, 30B→30, 2→2.
+  const containerBaseNum = (id) => { const s = String(id).replace(/[a-zA-Z]+$/, '').trim(); return s || String(id); };
 
   function fmtDateTime(iso) {
     if (!iso) return '—';
@@ -1505,6 +1507,7 @@
   // job fields, never mutates container state, so it's safe to call anytime.
   function backfillStartSummaries(job) {
     if (!GAM_JOB_TYPES.includes(job.jobType)) return [];
+    if (job.twinPending && job.twinPending.length) return []; // resolve twins first
     const existing = job.rentalSummaries || [];
     const hasStart = (cid) => existing.some(s => s.type === 'start' && String(s.containerId) === String(cid));
     const mk = (cid, efni, efniLabel) => ({
@@ -1531,6 +1534,56 @@
     }
     return out;
   }
+
+  // Twin resolution prompt — shown when a beiðni used a number shared by 2+
+  // containers and the director must pick which physical gám it was.
+  function renderTwinResolution(job) {
+    const roleLabel = (role) => {
+      if (role === 'tekinn') return 'tekinn gám';
+      if (role === 'settur') return 'settan gám';
+      if (role && role.startsWith('extra-')) return 'aukagám';
+      return 'gám';
+    };
+    const blocks = (job.twinPending || []).map(tp => {
+      const btns = (tp.candidateKeys || []).map(key => {
+        const c = appData.containers.find(x => x._key === key);
+        if (!c) return '';
+        const sz = sizeLabels[c.size] || c.size;
+        const loc = c.status === 'utleigu'
+          ? `útleiga hjá ${escHtml([c.company, c.where].filter(Boolean).join(', ') || 'óþekktum stað')}`
+          : 'heima';
+        return `<button class="btn btn-rust btn-sm" style="display:block;width:100%;text-align:left;margin:0.3rem 0;" onclick="resolveTwin('${job.id}','${tp.role}','${escHtml(key)}')"><strong>#${escHtml(c.id)} ${escHtml(sz)}</strong> — ${loc}</button>`;
+      }).join('');
+      return `<div style="margin:0.5rem 0;">
+        <div style="font-weight:700;color:#8a5a2b;margin-bottom:0.2rem;">Hvaða ${roleLabel(tp.role)} #${escHtml(tp.enteredNum)} var þetta?</div>
+        ${btns}
+      </div>`;
+    }).join('');
+    return `<div style="background:#fff8e8;border-left:4px solid #f5d76e;padding:0.85rem 1rem;border-radius:8px;margin:0.75rem 0;">
+      <div style="font-weight:800;color:#8a5a2b;margin-bottom:0.25rem;">⚠ Tvíburagámur — veldu réttа gám</div>
+      <div style="font-size:0.8rem;color:#8a5a2b;margin-bottom:0.3rem;">Fleiri en einn gámur er með þetta númer. Veldu hvern bílstjórinn átti við svo útleiga skráist á réttа gáminn.</div>
+      ${blocks}
+    </div>`;
+  }
+
+  window.resolveTwin = async function(jobId, role, key) {
+    const job = appData.jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const updated = { ...job, twinResolved: { ...(job.twinResolved || {}), [role]: key } };
+    // Re-run rental from a clean slate with the resolution applied
+    await reverseRentalLogic(job);
+    delete updated.rentalSummaries;
+    delete updated.rentalWarnings;
+    delete updated.twinPending;
+    const result = await applyContainerRentalLogic(updated, updated.workDate);
+    if (result) {
+      if (result.summaries.length) updated.rentalSummaries = result.summaries;
+      if (result.warnings.length) updated.rentalWarnings = result.warnings;
+      if (result.twinPending && result.twinPending.length) updated.twinPending = result.twinPending;
+    }
+    await fsSetJob(updated);
+    showToast((updated.twinPending && updated.twinPending.length) ? 'Gámur valinn — veldu næsta' : 'Gámur valinn ✓');
+  };
 
   function rentalSummaryBlock(job) {
     const stored = job.rentalSummaries || [];
@@ -1564,7 +1617,10 @@
         </div>`;
       }).join('');
       const anyNotSaved = summaries.some(s => !s.inBillingPanel);
-      const actions = anyNotSaved
+      const twinUnresolved = job.twinPending && job.twinPending.length;
+      const actions = twinUnresolved
+        ? `<div class="rental-saved" style="color:#8a5a2b;">Veldu tvíburagám hér að ofan áður en fært er í gámaskjal</div>`
+        : anyNotSaved
         ? `<div class="rental-actions"><button class="btn btn-green btn-sm" onclick="rentalVista('${job.id}')">📋 Færa í gámaskjal</button></div>`
         : `<div class="rental-saved">✓ Fært í gámaskjal — sjá Gámar</div>`;
       html += `<div class="rental-summary"><div class="rental-summary-title">Útleigusaga</div>${items}${actions}</div>`;
@@ -2281,10 +2337,12 @@
       // Strip old rental data, then re-apply
       delete job.rentalSummaries;
       delete job.rentalWarnings;
+      delete job.twinPending;
       const result = await applyContainerRentalLogic(job);
       if (result) {
         if (result.summaries.length) job.rentalSummaries = result.summaries;
         if (result.warnings.length) job.rentalWarnings = result.warnings;
+        if (result.twinPending && result.twinPending.length) job.twinPending = result.twinPending;
       }
     }
 
@@ -2411,6 +2469,7 @@
         ${job.completionNote ? `<div class="driver-note-box"><div class="driver-note-label">💬 Athugasemd frá bílstjóra</div><div class="driver-note-body">${escHtml(job.completionNote)}</div></div>` : ''}
         ${job.status === 'delayed' ? `<div class="delay-info-dir"><strong>⏸ Ástæða töfar</strong>${job.delayNote ? job.delayNote : '<em style="color:var(--muted)">Engin ástæða gefin</em>'}</div>` : ''}
         ${job.image ? `<hr class="job-divider"/><img src="${job.image}" class="job-image" alt="Mynd" />` : ''}
+        ${job.twinPending && job.twinPending.length ? renderTwinResolution(job) : ''}
         ${job.status === 'done' ? rentalSummaryBlock(job) : ''}
         ${_completingJobId === job.id ? renderCompleteForm(job) : ''}
         ${_fixingNumberJobId === job.id ? renderFixNumberForm(job) : ''}
@@ -2495,10 +2554,12 @@
         await reverseRentalLogic(job);
         delete updated.rentalSummaries;
         delete updated.rentalWarnings;
+        delete updated.twinPending;
         const result = await applyContainerRentalLogic(updated);
         if (result) {
           if (result.summaries.length) updated.rentalSummaries = result.summaries;
           if (result.warnings.length) updated.rentalWarnings = result.warnings;
+          if (result.twinPending && result.twinPending.length) updated.twinPending = result.twinPending;
         }
       }
     }
@@ -2646,6 +2707,32 @@
       return `Gámur #${num} er ekki skráður í Gámar alls.${hint}`;
     };
 
+    // ── TVÍBURAGÁMAR ────────────────────────────────────────────────────────
+    // When the entered number maps to 2+ containers sharing a base number
+    // (e.g. "30" → 30A + 30B, or two literal "30"), don't guess — defer and let
+    // the director pick which physical container. Resolution is stored on the
+    // job as twinResolved[role] = container _key.
+    const twinResolved = job.twinResolved || {};
+    const twinPending = [];
+    const resolveForIntent = (num, role, intent) => {
+      if (!num || num === 'Nei') return null;
+      if (twinResolved[role]) {
+        const c = appData.containers.find(x => x._key === twinResolved[role]);
+        if (c) return c;
+      }
+      const numL = String(num).toLowerCase();
+      const exact = appData.containers.filter(c => String(c.id).toLowerCase() === numL);
+      if (exact.length !== 1) {
+        const base = containerBaseNum(num).toLowerCase();
+        const baseMatches = appData.containers.filter(c => containerBaseNum(c.id).toLowerCase() === base);
+        if (baseMatches.length >= 2) {
+          twinPending.push({ role, enteredNum: String(num), candidateKeys: baseMatches.map(c => c._key) });
+          return 'PENDING';
+        }
+      }
+      return findForIntent(num, intent);
+    };
+
     const startRental = (c) => ({
       ...c, status: 'utleigu',
       company: job.company || '', where: job.where || '',
@@ -2698,7 +2785,8 @@
     switch (job.jobType) {
       case 'fara': { // Vantar gám: clock starts
         if (num && num !== 'Nei') {
-          const c = findForIntent(num, 'start');
+          const c = resolveForIntent(num, 'main', 'start');
+          if (c === 'PENDING') break;
           if (c) {
             warnIfAlreadyOut(c, job.company, job.where);
             await fsSetContainer(startRental(c));
@@ -2709,7 +2797,8 @@
       }
       case 'sekja': { // Taka gám: clock stops
         if (num && num !== 'Nei') {
-          const c = findForIntent(num, 'end');
+          const c = resolveForIntent(num, 'main', 'end');
+          if (c === 'PENDING') break;
           if (!c) {
             warnings.push(buildNotFoundWarning(num));
           } else {
@@ -2722,10 +2811,9 @@
         break;
       }
       case 'losa': { // Losa gám: same gámur, clock stops + new clock starts.
-        // Only the END card goes into gámaskjal — director and driver know what
-        // a losun is, so the new start clock is just stored on the gám record.
         if (num && num !== 'Nei') {
-          const c = findForIntent(num, 'end') || findForIntent(num, 'start');
+          const c = resolveForIntent(num, 'main', 'end');
+          if (c === 'PENDING') break;
           if (c) {
             if (c.status === 'utleigu' && c.placedAt) {
               const { summary } = endRental(c);
@@ -2742,8 +2830,8 @@
         const tek = job.containerNumberTekinn;
         const set = job.containerNumberSettur;
         if (tek && set && tek === set && tek !== 'Nei') {
-          // Same as losa — only end card, new start clock recorded on gám only
-          const c = findForIntent(tek, 'end') || findForIntent(tek, 'start');
+          const c = resolveForIntent(tek, 'tekinn', 'end');
+          if (c === 'PENDING') break;
           if (c) {
             if (c.status === 'utleigu' && c.placedAt) {
               const { summary } = endRental(c);
@@ -2755,8 +2843,10 @@
           }
         } else {
           if (tek && tek !== 'Nei') {
-            const cT = findForIntent(tek, 'end');
-            if (!cT) {
+            const cT = resolveForIntent(tek, 'tekinn', 'end');
+            if (cT === 'PENDING') {
+              // skip — director will resolve
+            } else if (!cT) {
               warnings.push(buildNotFoundWarning(tek));
             } else {
               const { updated, summary } = endRental(cT);
@@ -2766,8 +2856,10 @@
             }
           }
           if (set && set !== 'Nei') {
-            const cS = findForIntent(set, 'start');
-            if (cS) {
+            const cS = resolveForIntent(set, 'settur', 'start');
+            if (cS === 'PENDING') {
+              // skip — director will resolve
+            } else if (cS) {
               warnIfAlreadyOut(cS, job.company, job.where);
               await fsSetContainer(startRental(cS));
               summaries.push(makeStartSummary(cS));
@@ -2779,11 +2871,14 @@
     }
     // Aukagáma — same rules as main: 'taka' = rental end, 'setja' = rental start
     if (job.extraContainers && job.extraContainers.length > 0) {
-      for (const extra of job.extraContainers) {
+      for (let ei = 0; ei < job.extraContainers.length; ei++) {
+        const extra = job.extraContainers[ei];
         const num = extra.number;
         if (!num || num === 'Nei') continue;
+        const role = 'extra-' + ei;
         if (extra.action === 'taka') {
-          const c = findForIntent(num, 'end');
+          const c = resolveForIntent(num, role, 'end');
+          if (c === 'PENDING') continue;
           if (!c) {
             warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
           } else {
@@ -2799,7 +2894,8 @@
             }
           }
         } else if (extra.action === 'setja') {
-          const c = findForIntent(num, 'start');
+          const c = resolveForIntent(num, role, 'start');
+          if (c === 'PENDING') continue;
           if (!c) {
             warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
           } else {
@@ -2813,7 +2909,7 @@
         }
       }
     }
-    return { summaries, warnings };
+    return { summaries, warnings, twinPending };
   }
 
   window.completeJob = async function(id, isSkipta) {
@@ -2859,14 +2955,15 @@
     // Apply rental linking BEFORE saving the job so we can attach summaries
     const result = await applyContainerRentalLogic(updated, workDate);
     if (result) {
-      if (result.summaries.length) updated.rentalSummaries = result.summaries;
-      if (result.warnings.length) updated.rentalWarnings = result.warnings;
+      if (result.summaries.length) updated.rentalSummaries = result.summaries; else delete updated.rentalSummaries;
+      if (result.warnings.length) updated.rentalWarnings = result.warnings; else delete updated.rentalWarnings;
+      if (result.twinPending && result.twinPending.length) updated.twinPending = result.twinPending; else delete updated.twinPending;
       updated.rentalProcessed = true;
     }
     // Clear director's local extras state
     delete _extrasMapDir[id];
     await fsSetJob(updated);
-    showToast('Beiðni skráð sem lokin ✓');
+    showToast(result && result.twinPending && result.twinPending.length ? '⚠ Tvíburagámur — veldu hvaða gám' : 'Beiðni skráð sem lokin ✓');
   };
 
   window.reopenJob = async function(id) {

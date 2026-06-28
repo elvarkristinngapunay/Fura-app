@@ -924,6 +924,30 @@
       }
       return `Gámur #${num} er ekki skráður í Gámar alls.${hint}`;
     };
+    // TVÍBURAGÁMAR: if the entered number maps to 2+ containers (30A+30B, or two
+    // literal "30"), don't guess — defer and let the DIRECTOR pick. The job
+    // stores twinPending; the director resolves on their side.
+    const containerBaseNum = (id) => { const s = String(id).replace(/[a-zA-Z]+$/, '').trim(); return s || String(id); };
+    const twinResolved = job.twinResolved || {};
+    const twinPending = [];
+    const resolveForIntent = (num, role, intent) => {
+      if (!num || num === 'Nei') return null;
+      if (twinResolved[role]) {
+        const c = appData.containers.find(x => x._key === twinResolved[role]);
+        if (c) return c;
+      }
+      const numL = String(num).toLowerCase();
+      const exact = appData.containers.filter(c => String(c.id).toLowerCase() === numL);
+      if (exact.length !== 1) {
+        const base = containerBaseNum(num).toLowerCase();
+        const baseMatches = appData.containers.filter(c => containerBaseNum(c.id).toLowerCase() === base);
+        if (baseMatches.length >= 2) {
+          twinPending.push({ role, enteredNum: String(num), candidateKeys: baseMatches.map(c => c._key) });
+          return 'PENDING';
+        }
+      }
+      return findForIntent(num, intent);
+    };
     const startRental = (c) => ({
       ...c, status: 'utleigu',
       company: job.company || '', where: job.where || '',
@@ -965,7 +989,8 @@
     switch (job.jobType) {
       case 'fara': {
         if (num && num !== 'Nei') {
-          const c = findForIntent(num, 'start');
+          const c = resolveForIntent(num, 'main', 'start');
+          if (c === 'PENDING') break;
           if (c) {
             warnIfAlreadyOut(c, job.company, job.where);
             await fsSetContainer(startRental(c));
@@ -976,7 +1001,8 @@
       }
       case 'sekja': {
         if (num && num !== 'Nei') {
-          const c = findForIntent(num, 'end');
+          const c = resolveForIntent(num, 'main', 'end');
+          if (c === 'PENDING') break;
           if (!c) {
             warnings.push(buildNotFoundWarning(num));
           } else {
@@ -991,7 +1017,8 @@
       case 'losa': {
         // Sama gámur lostaður og settur aftur — bara EITT lokunarspjald í gámaskjal
         if (num && num !== 'Nei') {
-          const c = findForIntent(num, 'end') || findForIntent(num, 'start');
+          const c = resolveForIntent(num, 'main', 'end');
+          if (c === 'PENDING') break;
           if (c) {
             if (c.status === 'utleigu' && c.placedAt) {
               const { summary } = endRental(c);
@@ -1009,7 +1036,8 @@
         const set = job.containerNumberSettur;
         if (tek && set && tek === set && tek !== 'Nei') {
           // Skipta með sama númeri = losa — bara eitt lokunarspjald
-          const c = findForIntent(tek, 'end') || findForIntent(tek, 'start');
+          const c = resolveForIntent(tek, 'tekinn', 'end');
+          if (c === 'PENDING') break;
           if (c) {
             if (c.status === 'utleigu' && c.placedAt) {
               const { summary } = endRental(c);
@@ -1021,8 +1049,10 @@
           }
         } else {
           if (tek && tek !== 'Nei') {
-            const cT = findForIntent(tek, 'end');
-            if (!cT) {
+            const cT = resolveForIntent(tek, 'tekinn', 'end');
+            if (cT === 'PENDING') {
+              // skip — director resolves
+            } else if (!cT) {
               warnings.push(buildNotFoundWarning(tek));
             } else {
               const { updated, summary } = endRental(cT);
@@ -1032,8 +1062,10 @@
             }
           }
           if (set && set !== 'Nei') {
-            const cS = findForIntent(set, 'start');
-            if (cS) {
+            const cS = resolveForIntent(set, 'settur', 'start');
+            if (cS === 'PENDING') {
+              // skip — director resolves
+            } else if (cS) {
               warnIfAlreadyOut(cS, job.company, job.where);
               await fsSetContainer(startRental(cS));
               summaries.push(makeStartSummary(cS));
@@ -1045,11 +1077,14 @@
     }
     // Aukagáma — same rules as main: 'taka' = rental end, 'setja' = rental start
     if (job.extraContainers && job.extraContainers.length > 0) {
-      for (const extra of job.extraContainers) {
+      for (let ei = 0; ei < job.extraContainers.length; ei++) {
+        const extra = job.extraContainers[ei];
         const num = extra.number;
         if (!num || num === 'Nei') continue;
+        const role = 'extra-' + ei;
         if (extra.action === 'taka') {
-          const c = findForIntent(num, 'end');
+          const c = resolveForIntent(num, role, 'end');
+          if (c === 'PENDING') continue;
           if (!c) {
             warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
           } else {
@@ -1066,7 +1101,8 @@
             }
           }
         } else if (extra.action === 'setja') {
-          const c = findForIntent(num, 'start');
+          const c = resolveForIntent(num, role, 'start');
+          if (c === 'PENDING') continue;
           if (!c) {
             warnings.push(`Aukagámur — ${buildNotFoundWarning(num)}`);
           } else {
@@ -1080,7 +1116,7 @@
         }
       }
     }
-    return { summaries, warnings };
+    return { summaries, warnings, twinPending };
   }
 
   window.markDone = async function(id, isSkipta) {
@@ -1130,6 +1166,7 @@
     if (result) {
       if (result.summaries.length) updated.rentalSummaries = result.summaries;
       if (result.warnings.length) updated.rentalWarnings = result.warnings;
+      if (result.twinPending && result.twinPending.length) updated.twinPending = result.twinPending;
       updated.rentalProcessed = true;
     }
     // Clear local extras state since they're now saved
@@ -1253,10 +1290,12 @@
     await reverseRentalLogic(job);
     delete updated.rentalSummaries;
     delete updated.rentalWarnings;
+    delete updated.twinPending;
     const result = await applyContainerRentalLogic(updated, updated.workDate);
     if (result) {
       if (result.summaries.length) updated.rentalSummaries = result.summaries;
       if (result.warnings.length) updated.rentalWarnings = result.warnings;
+      if (result.twinPending && result.twinPending.length) updated.twinPending = result.twinPending;
       updated.rentalProcessed = true;
     }
     _fixingDoneId = null;
