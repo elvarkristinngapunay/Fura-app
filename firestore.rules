@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Opinn aðgangur — sama hegðun og áður (engin útrunnsdagsetning).
+    // ATH: Þetta er bráðabirgðaráðstöfun til að koma forritinu aftur í gang.
+    // Næsta skref ætti að vera Firebase Auth + reglur sem krefjast innskráningar.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
