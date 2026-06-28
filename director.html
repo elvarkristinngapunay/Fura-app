@@ -2565,12 +2565,33 @@
       if (matches.length > 1) warnings.push(`Margir gámar með númerið ${num} fundust — uppfærði ${sizeLabels[picked.size] || picked.size}`);
       return picked;
     };
+    // Find container numbers that look similar to the entered one, so the
+    // director can spot a twin (30 → 30A/30B) or a typo at a glance.
+    const findSimilarNumbers = (num) => {
+      const n = String(num).trim().toLowerCase();
+      if (!n) return [];
+      const seen = new Set();
+      const out = [];
+      for (const c of appData.containers) {
+        const cid = String(c.id).trim();
+        const cidLower = cid.toLowerCase();
+        if (cidLower === n) continue; // exact handled elsewhere
+        const isSimilar = cidLower.startsWith(n) || n.startsWith(cidLower)
+                       || cidLower.includes(n) || n.includes(cidLower);
+        if (isSimilar && !seen.has(cid)) { seen.add(cid); out.push(cid); }
+      }
+      return out;
+    };
     const buildNotFoundWarning = (num) => {
+      const similar = findSimilarNumbers(num);
+      const hint = similar.length
+        ? ` Svipuð númer í Gámar alls: ${similar.join(', ')}. Skoðaðu listann og lagfærðu númerið með "Lagfæra gámanúmer".`
+        : ` Skoðaðu Gámar listann — annaðhvort bætir stjórnandi gámnum við (+ Bæta við gámi) eða lagfærir númerið ef það er innsláttarvilla.`;
       const hasText = !/^\d+$/.test(num);
       if (hasText) {
-        return `Gámanúmer "${num}" inniheldur texta og fannst ekki í Gámar alls — gæti verið innsláttarvilla. Stjórnandi þarf að lagfæra númerið með "Lagfæra gámanúmer".`;
+        return `Gámanúmer "${num}" fannst ekki í Gámar alls — gæti verið innsláttarvilla.${hint}`;
       }
-      return `Gámur #${num} er ekki skráður í Gámar alls. Stjórnandi þarf annaðhvort að bæta honum við (+ Bæta við gámi) eða lagfæra númerið ef það er innsláttarvilla.`;
+      return `Gámur #${num} er ekki skráður í Gámar alls.${hint}`;
     };
 
     const startRental = (c) => ({
