@@ -3216,15 +3216,14 @@
     const archived = d.jobs.filter(j => j.status === 'archived');
 
     const matches = archived.filter(j => {
-      // Text filter — company name and container number only
+      // Text filter — gámanúmer matches EXACTLY (so "2" finnur ekki 12/20/200),
+      // company name allows partial match.
       if (q) {
-        const haystack = [
-          j.company,
-          j.containerNumber,
-          j.containerNumberTekinn,
-          j.containerNumberSettur
-        ].filter(Boolean).join(' ').toLowerCase();
-        if (!haystack.includes(q)) return false;
+        const nums = [j.containerNumber, j.containerNumberTekinn, j.containerNumberSettur]
+          .filter(Boolean).map(x => String(x).toLowerCase().trim());
+        const numHit = nums.includes(q);
+        const companyHit = j.company && j.company.toLowerCase().includes(q);
+        if (!numHit && !companyHit) return false;
       }
       // Date range filter — uses the job's own date field
       if (fromVal && j.date && j.date < fromVal) return false;
