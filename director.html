@@ -1223,11 +1223,14 @@
     const total = all.length;
     const utleigu = all.filter(c => c.status === 'utleigu').length;
     const heima = all.filter(c => c.status === 'heima').length;
-    // ⚠ TVÍBURAGÁMAR: auto-detect any number shared by 2+ containers. Twins
-    // make driver input ambiguous ("hvaða #2?"), so director should give each
-    // a unique number (e.g. 2 → 2A / 2B) like we did for #30.
+    // ⚠ TVÍBURAGÁMAR: group by BASE number (strip trailing letters) so that
+    // 30A + 30B count as twins of painted number 30, same as #2 litill + #2 stór.
+    const baseNum = (id) => {
+      const stripped = String(id).replace(/[a-zA-Z]+$/, '').trim();
+      return stripped || String(id);
+    };
     const byNumber = {};
-    all.forEach(c => { (byNumber[c.id] = byNumber[c.id] || []).push(c); });
+    all.forEach(c => { const b = baseNum(c.id); (byNumber[b] = byNumber[b] || []).push(c); });
     const twinGroups = Object.entries(byNumber).filter(([, arr]) => arr.length > 1);
     let banner = '';
     if (twinGroups.length > 0) {
@@ -1248,8 +1251,7 @@
         </div>`;
       }).join('');
       banner = `<div style="background:#fff8e8;border-left:4px solid #f5d76e;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1rem;">
-        <div style="font-weight:800;color:#8a5a2b;margin-bottom:0.2rem;">⚠ Tvíburagámar — fleiri en einn gámur með sama númeri</div>
-        <div style="font-size:0.8rem;color:#8a5a2b;margin-bottom:0.3rem;">Gefðu hverjum einstakt númer (t.d. ${escHtml(twinGroups[0][0])}A og ${escHtml(twinGroups[0][0])}B) svo bílstjóra-innsláttur ruglist ekki.</div>
+        <div style="font-weight:800;color:#8a5a2b;margin-bottom:0.3rem;">⚠ Tvíburagámar — fleiri en einn gámur með sama númeri</div>
         ${groupHtml}
       </div>`;
     }
