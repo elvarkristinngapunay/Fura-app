@@ -1225,15 +1225,22 @@
     const total = all.length;
     const utleigu = all.filter(c => c.status === 'utleigu').length;
     const heima = all.filter(c => c.status === 'heima').length;
-    // ⚠ TVÍBURAGÁMAR: group by BASE number (strip trailing letters) so that
-    // 30A + 30B count as twins of painted number 30, same as #2 litill + #2 stór.
+    // ⚠ TVÍBURAGÁMAR: only flag containers that share BOTH number AND size —
+    // those are genuinely indistinguishable (e.g. 30A + 30B, both Lítill).
+    // #2 Stór + #2 Lítill are fine (told apart by size), so they are NOT flagged.
     const baseNum = (id) => {
       const stripped = String(id).replace(/[a-zA-Z]+$/, '').trim();
       return stripped || String(id);
     };
     const byNumber = {};
     all.forEach(c => { const b = baseNum(c.id); (byNumber[b] = byNumber[b] || []).push(c); });
-    const twinGroups = Object.entries(byNumber).filter(([, arr]) => arr.length > 1);
+    const twinGroups = Object.entries(byNumber).map(([num, arr]) => {
+      // keep only containers whose (base number + size) collides with another
+      const sizeCounts = {};
+      arr.forEach(c => { sizeCounts[c.size] = (sizeCounts[c.size] || 0) + 1; });
+      const colliding = arr.filter(c => sizeCounts[c.size] >= 2);
+      return [num, colliding];
+    }).filter(([, colliding]) => colliding.length >= 2);
     let banner = '';
     if (twinGroups.length > 0) {
       const groupHtml = twinGroups.map(([num, arr]) => {
@@ -1248,12 +1255,12 @@
           </div>`;
         }).join('');
         return `<div style="margin:0.5rem 0;padding:0.5rem 0.7rem;background:#fff;border-radius:6px;">
-          <div style="font-weight:700;color:#8a5a2b;">Númer ${escHtml(num)} — ${arr.length} gámar deila þessu númeri</div>
+          <div style="font-weight:700;color:#8a5a2b;">Númer ${escHtml(num)} — ${arr.length} gámar með sama númer OG stærð</div>
           ${rows}
         </div>`;
       }).join('');
       banner = `<div style="background:#fff8e8;border-left:4px solid #f5d76e;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1rem;">
-        <div style="font-weight:800;color:#8a5a2b;margin-bottom:0.3rem;">⚠ Tvíburagámar — fleiri en einn gámur með sama númeri</div>
+        <div style="font-weight:800;color:#8a5a2b;margin-bottom:0.3rem;">⚠ Tvíburagámar — sama númer og sama stærð</div>
         ${groupHtml}
       </div>`;
     }
