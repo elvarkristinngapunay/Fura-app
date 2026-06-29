@@ -1225,46 +1225,9 @@
     const total = all.length;
     const utleigu = all.filter(c => c.status === 'utleigu').length;
     const heima = all.filter(c => c.status === 'heima').length;
-    // ⚠ TVÍBURAGÁMAR: only flag containers that share BOTH number AND size —
-    // those are genuinely indistinguishable (e.g. 30A + 30B, both Lítill).
-    // #2 Stór + #2 Lítill are fine (told apart by size), so they are NOT flagged.
-    const baseNum = (id) => {
-      const stripped = String(id).replace(/[a-zA-Z]+$/, '').trim();
-      return stripped || String(id);
-    };
-    const byNumber = {};
-    all.forEach(c => { const b = baseNum(c.id); (byNumber[b] = byNumber[b] || []).push(c); });
-    const twinGroups = Object.entries(byNumber).map(([num, arr]) => {
-      // keep only containers whose (base number + size) collides with another
-      const sizeCounts = {};
-      arr.forEach(c => { sizeCounts[c.size] = (sizeCounts[c.size] || 0) + 1; });
-      const colliding = arr.filter(c => sizeCounts[c.size] >= 2);
-      return [num, colliding];
-    }).filter(([, colliding]) => colliding.length >= 2);
-    let banner = '';
-    if (twinGroups.length > 0) {
-      const groupHtml = twinGroups.map(([num, arr]) => {
-        const rows = arr.map(c => {
-          const sz = sizeLabels[c.size] || c.size;
-          const loc = c.status === 'utleigu'
-            ? `útleiga hjá ${escHtml([c.company, c.where].filter(Boolean).join(', ') || 'óþekktum stað')}`
-            : 'heima';
-          return `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;padding:0.3rem 0;border-top:1px dashed #e8ddc8;">
-            <span><strong>#${escHtml(c.id)} ${escHtml(sz)}</strong> — ${loc}</span>
-            <button class="btn btn-rust btn-sm" onclick="editContainer('${escHtml(c._key)}')">Endurnefna</button>
-          </div>`;
-        }).join('');
-        return `<div style="margin:0.5rem 0;padding:0.5rem 0.7rem;background:#fff;border-radius:6px;">
-          <div style="font-weight:700;color:#8a5a2b;">Númer ${escHtml(num)} — ${arr.length} gámar með sama númer OG stærð</div>
-          ${rows}
-        </div>`;
-      }).join('');
-      banner = `<div style="background:#fff8e8;border-left:4px solid #f5d76e;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1rem;">
-        <div style="font-weight:800;color:#8a5a2b;margin-bottom:0.3rem;">⚠ Tvíburagámar — sama númer og sama stærð</div>
-        ${groupHtml}
-      </div>`;
-    }
-    sumEl.innerHTML = `${banner}<strong>${total}</strong> gámar alls · <strong style="color:var(--rust);">${utleigu}</strong> úti · <strong style="color:var(--green);">${heima}</strong> heima`;
+    // Tvíburar eru meðhöndlaðir á beiðninni sjálfri (director velur hvor gámurinn
+    // þegar driver skráir tvíbura) — engin endurnefningar-viðvörun í Gámar-listanum.
+    sumEl.innerHTML = `<strong>${total}</strong> gámar alls · <strong style="color:var(--rust);">${utleigu}</strong> úti · <strong style="color:var(--green);">${heima}</strong> heima`;
 
     let list = sortContainers(all);
     if (q) {
